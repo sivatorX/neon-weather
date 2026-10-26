@@ -275,15 +275,16 @@ function createModelsBlock(modelTemps) {
   const chips = document.createElement("div");
   chips.className = "model-chips";
   for (const item of modelTemps) {
-    chips.append(createElement("span", "model-chip", `${item.label} ${Math.round(item.value)}°`));
+    chips.append(createElement("span", "model-chip", `${item.label} ${formatTemp(item.value)}`));
   }
   block.append(chips);
 
   // A spread needs at least two models to compare
   if (count >= 2) {
     const values = modelTemps.map((item) => item.value);
-    const spread = Math.round(Math.max(...values) - Math.min(...values));
-    block.append(createElement("div", "card-details", `Разброс: ${spread}°`));
+    // A difference, so formatDelta (x1.8 only), not formatTemp (x1.8 + 32)
+    const spread = formatDelta(Math.max(...values) - Math.min(...values));
+    block.append(createElement("div", "card-details", `Разброс: ${spread}`));
   }
   return block;
 }
@@ -291,7 +292,7 @@ function createModelsBlock(modelTemps) {
 // The stencil digit font draws "°" like a small zero,
 // so the degree sign gets its own span with a normal font.
 function createTemperature(value) {
-  const temperature = createElement("div", "card-temp", String(Math.round(value)));
+  const temperature = createElement("div", "card-temp", String(roundTemp(toDisplayTemp(value))));
   temperature.append(createElement("span", "card-deg", "°"));
   return temperature;
 }
@@ -309,6 +310,7 @@ function renderToday(place, current) {
 
   card.append(
     createFavouriteToggle(place),
+    createShareButton(),
     createElement("h2", "card-city", title),
     icon,
     createTemperature(current.temperature),
@@ -317,7 +319,7 @@ function renderToday(place, current) {
     createElement(
       "div",
       "card-details",
-      `Ощущается как ${Math.round(current.apparentTemperature)}° · ` +
+      `Ощущается как ${formatTemp(current.apparentTemperature)} · ` +
         `Ветер ${wind} м/с · Влажность ${Math.round(current.humidity)}%`
     )
   );
@@ -333,7 +335,7 @@ function renderToday(place, current) {
   showHeaderDate(current.time); // the date of the city, not of the phone
   // The slim bar at the top shows the same city, temperature and icon (scroll.js)
   if (typeof updateStickyBar === "function") {
-    updateStickyBar(place.name, `${Math.round(current.temperature)}°`, info.icon);
+    updateStickyBar(place.name, formatTemp(current.temperature), info.icon);
   }
 }
 
@@ -497,7 +499,7 @@ function renderHourly(items) {
     card.append(
       createElement("div", "hour-time", index === 0 ? "Сейчас" : item.clock),
       createIcon("hour-icon", item.weatherCode, item.isDay),
-      createElement("div", "hour-temp", `${Math.round(item.temperature)}°`)
+      createElement("div", "hour-temp", formatTemp(item.temperature))
     );
     // Show rain only when there is a chance of it
     if (item.rain !== null && item.rain > 0) {
@@ -542,7 +544,7 @@ function renderDaily(items) {
       createElement("div", "day-name", formatDayName(item)),
       createIcon("day-icon", item.weatherCode, 1),
       createElement("div", "rain day-rain", rainText),
-      createElement("div", "day-temps", `${Math.round(item.min)}° / ${Math.round(item.max)}°`),
+      createElement("div", "day-temps", `${formatTemp(item.min)} / ${formatTemp(item.max)}`),
       bar
     );
     list.append(row);
@@ -590,7 +592,7 @@ function readSunTimes(daily, currentTime) {
 
 function renderChart(items) {
   chartSection.replaceChildren();
-  const chart = buildTemperatureChart(items);
+  const chart = buildTemperatureChart(items, getUnits());
   if (chart) {
     chartSection.append(createPanel("Температура на 24 часа", chart));
   }
@@ -719,7 +721,7 @@ function createSpeakButton(speechText) {
 // air may be null (air request failed): then the assistant just skips the air row
 function renderAssistant(place, current, data, air) {
   assistantSection.replaceChildren(); // start clean: no forecast = no assistant
-  const rows = buildInsights(buildHourSeries(data.hourly), current.time, air ? air.aqi : null);
+  const rows = buildInsights(buildHourSeries(data.hourly), current.time, air ? air.aqi : null, getUnits());
   if (rows.length === 0) {
     return;
   }
@@ -741,7 +743,7 @@ function renderAssistant(place, current, data, air) {
 
   if (canSpeak()) {
     const info = getWeatherInfo(current.weatherCode, current.isDay);
-    const speechText = buildSpeechText(place.name, current.temperature, info.text, rows);
+    const speechText = buildSpeechText(place.name, current.temperature, info.text, rows, getUnits());
     panel.append(createSpeakButton(speechText));
   }
   assistantSection.append(panel);
@@ -764,6 +766,29 @@ function renderCityChoices(places) {
   cityChoicesSection.replaceChildren(...buttons);
 }
 
+// The last answers from the internet, all in Celsius (null = nothing on the screen).
+// { place, current, forecast (or null), air (or null) }
+let lastLoaded = null;
+
+// Draw all weather panels from saved answers. No network here, so it is safe
+// to call again when the unit changes.
+function renderWeather(loaded) {
+  stopSpeaking(); // the old speech text has the old unit
+  renderToday(loaded.place, loaded.current);
+  renderAir(loaded.air);
+  if (loaded.forecast) {
+    const forecastShown = renderForecast(loaded.forecast, loaded.current.time);
+    if (forecastShown) {
+      renderAssistant(loaded.place, loaded.current, loaded.forecast, loaded.air);
+    }
+  } else {
+    renderForecastError(); // the current card is still useful, so keep it
+  }
+  if (typeof refreshScrollEffects === "function") {
+    refreshScrollEffects(); // new panels fade in when they enter the screen
+  }
+}
+
 // Load and show the weather for one chosen place.
 async function loadWeather(place) {
   // Loading state
@@ -784,28 +809,19 @@ async function loadWeather(place) {
     }
 
     // Success state
-    renderToday(place, currentResult.value);
+    // A failed air request is not an error for the user: the panel just stays away
+    const air = airResult.status === "fulfilled" ? airResult.value : null;
+    const forecast = forecastResult.status === "fulfilled" ? forecastResult.value : null;
+    // Keep the answers (all in Celsius): the unit switch draws them again without a request
+    lastLoaded = { place: place, current: currentResult.value, forecast: forecast, air: air };
+    renderWeather(lastLoaded);
     saveLastPlace(place); // only a place that really loaded is worth remembering
     showBackground(currentResult.value);
     // The radar lives in radar.js and never throws; no await, the map loads on its own
     if (typeof showRadar === "function") {
       showRadar(place.latitude, place.longitude, place.name);
     }
-    // A failed air request is not an error for the user: the panel just stays away
-    const air = airResult.status === "fulfilled" ? airResult.value : null;
-    renderAir(air);
-    if (forecastResult.status === "fulfilled") {
-      const forecastShown = renderForecast(forecastResult.value, currentResult.value.time);
-      if (forecastShown) {
-        renderAssistant(place, currentResult.value, forecastResult.value, air);
-      }
-    } else {
-      renderForecastError(); // the current card is still useful, so keep it
-    }
     setStatus("");
-    if (typeof refreshScrollEffects === "function") {
-      refreshScrollEffects(); // new panels fade in when they enter the screen
-    }
   } catch (error) {
     // Error state
     setStatus(error.message);
@@ -881,6 +897,7 @@ function setBusy(busy) {
 // Remove the old answer before a new one is loaded
 function clearResults() {
   updateCardStar = null; // the card is going away
+  lastLoaded = null; // nothing to redraw when the unit changes
   cityChoicesSection.replaceChildren();
   stopSpeaking();
   todaySection.replaceChildren();
@@ -892,6 +909,62 @@ function clearResults() {
   airSection.replaceChildren();
   dailySection.replaceChildren();
   if (typeof hideRadar === "function") hideRadar();
+}
+
+// ---------- Share ----------
+
+// The button on the weather card. The text is made when it is pressed,
+// so it always uses the unit that is chosen at that moment.
+function createShareButton() {
+  const button = createElement("button", "share-button", "↗");
+  button.type = "button";
+  button.setAttribute("aria-label", "Поделиться погодой");
+  button.addEventListener("click", handleShare);
+  return button;
+}
+
+function handleShare() {
+  if (lastLoaded === null) {
+    return;
+  }
+  const { place, current, forecast, air } = lastLoaded;
+  const units = getUnits();
+  const info = getWeatherInfo(current.weatherCode, current.isDay);
+  // The clothes advice is optional: without a forecast the text is just shorter
+  const rows = forecast
+    ? buildInsights(buildHourSeries(forecast.hourly), current.time, air ? air.aqi : null, units)
+    : [];
+  const text = buildShareText(
+    place.name,
+    current.temperature,
+    current.apparentTemperature,
+    info.text,
+    rows,
+    units
+  );
+  shareWeather(`Погода: ${place.name}`, text, buildShareUrl(place));
+}
+
+// ---------- Unit switch (°C / °F) ----------
+
+const unitButtons = document.querySelectorAll(".unit-button");
+
+// Mark the chosen button. aria-pressed tells screen readers which one is on.
+function showUnitButtons() {
+  for (const button of unitButtons) {
+    button.setAttribute("aria-pressed", String(button.dataset.unit === currentUnit));
+  }
+}
+
+function handleUnitClick(event) {
+  if (!setUnit(event.currentTarget.dataset.unit)) {
+    return;
+  }
+  showUnitButtons();
+  // Draw the same answers again in the new unit: no new request
+  if (lastLoaded !== null) {
+    renderWeather(lastLoaded);
+  }
 }
 
 // ---------- Favourites ----------
@@ -1073,11 +1146,22 @@ if ("geolocation" in navigator) {
   locateButton.hidden = true; // this browser cannot do it
 }
 
+for (const button of unitButtons) {
+  button.addEventListener("click", handleUnitClick);
+}
+showUnitButtons();
+
 renderFavourites();
 
 // Open the last city again. We do NOT ask for the location here:
 // a permission popup right at the start would surprise the user.
+// A shared link (?lat=..&lon=..&name=..) has priority over the last city.
+const sharedPlace = readPlaceFromUrl();
+cleanShareParamsFromUrl();
 const lastPlace = loadLastPlace();
-if (lastPlace !== null) {
+if (sharedPlace !== null) {
+  loadWeather(sharedPlace);
+} else if (lastPlace !== null) {
   loadWeather(lastPlace);
 }
+

@@ -832,6 +832,122 @@ section {
   pointer-events: none;
 }
 
+/* ---------- °C / °F switch (top-right of the header) ---------- */
+
+header {
+  position: relative;
+}
+
+h1 {
+  padding-right: 112px; /* keeps the title away from the switch */
+}
+
+/* One neon pill split in two buttons. Each button is at least 44px tall and wide. */
+.unit-toggle {
+  position: absolute;
+  top: var(--space-1);
+  right: 0;
+  display: flex;
+  border: 1.5px solid var(--neon);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: var(--glow-line);
+  background: rgba(5, 10, 24, 0.6);
+}
+
+.unit-button {
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 var(--space-1);
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--neon);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* The chosen unit is filled with the neon color */
+.unit-button[aria-pressed="true"] {
+  color: var(--neon-ink);
+  background: var(--neon);
+  box-shadow: var(--glow-strong);
+}
+
+.unit-button:focus-visible,
+.share-button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
+}
+
+/* ---------- Share button (top-left corner of the weather card) ---------- */
+
+.share-button {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--neon);
+  text-shadow: var(--text-glow);
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.15s, background-color 0.2s;
+}
+
+.share-button:hover {
+  background: var(--accent-soft);
+}
+
+.share-button:active {
+  transform: scale(0.95);
+}
+
+/* ---------- Toast ("Скопировано!") ---------- */
+/* The reduced-motion block at the end turns the fade off, so it just appears. */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 20;
+  max-width: calc(100% - 32px); /* 16px gutter on both sides */
+  padding: 12px var(--space-2);
+  font-size: 15px;
+  text-align: center;
+  color: var(--text);
+  overflow-wrap: anywhere; /* a long link wraps instead of pushing the page sideways */
+  background: rgba(5, 10, 24, 0.92);
+  border: 1.5px solid var(--neon);
+  border-radius: var(--radius-control);
+  box-shadow: var(--glow-strong);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, 8px);
+  transition: opacity 0.25s, transform 0.25s, visibility 0s linear 0.25s;
+}
+
+.toast.is-shown {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition: opacity 0.25s, transform 0.25s;
+}
+
+/* A link the user has to copy by hand: it must be touchable and selectable */
+.toast.is-selectable {
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* People who dislike motion get a calm page without animations */
 @media (prefers-reduced-motion: reduce) {
   html {

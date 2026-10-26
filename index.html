@@ -16,7 +16,9 @@
   <link rel="stylesheet" href="radar.css">
   <script src="background.js" defer></script>
   <script src="insights.js" defer></script>
+  <script src="units.js" defer></script>
   <script src="storage.js" defer></script>
+  <script src="share.js" defer></script>
   <script src="scroll.js" defer></script>
   <script src="charts.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
@@ -40,6 +42,11 @@
 
   <main class="page">
     <header>
+      <!-- °C / °F switch: app.js marks the chosen button with aria-pressed -->
+      <div class="unit-toggle" role="group" aria-label="Единицы температуры">
+        <button class="unit-button" type="button" data-unit="C" aria-pressed="true">°C</button>
+        <button class="unit-button" type="button" data-unit="F" aria-pressed="false">°F</button>
+      </div>
       <h1>Погода</h1>
       <!-- Today's date; app.js fills it -->
       <p id="header-date" class="header-date"></p>
@@ -83,6 +90,9 @@
     <!-- Precipitation radar map: radar.js builds it (showRadar / hideRadar) -->
     <section id="radar" aria-label="Радар осадков"></section>
   </main>
+
+  <!-- Small message for "Скопировано!"; aria-live makes screen readers read it -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 </body>
 </html>

@@ -38,9 +38,13 @@ function makeElement(tag, className, text) {
   return element;
 }
 
+// units (from app.js, see units.js) converts a Celsius value to the shown number.
+// The chart itself stays in Celsius; only the texts are converted.
+const CHART_CELSIUS = { temp: (value) => value };
+
 // Round, and turn -0 into 0 (otherwise we would show "-0°")
-function chartDegrees(value) {
-  return `${Math.round(value) + 0}°`;
+function chartDegrees(value, units) {
+  return `${Math.round(units.temp(value)) + 0}°`;
 }
 
 // ---------- 1. Temperature chart ----------
@@ -89,7 +93,7 @@ function pickAnchor(x) {
 
 // items: the hourly list from app.js, { clock: "15:00", temperature: 12.3 }, first item = now.
 // Returns an <svg> or null when there are too few hours to draw a line.
-function buildTemperatureChart(items) {
+function buildTemperatureChart(items, units = CHART_CELSIUS) {
   const hours = items.filter(
     (item) => item && typeof item.clock === "string" && Number.isFinite(item.temperature)
   );
@@ -110,7 +114,7 @@ function buildTemperatureChart(items) {
   }));
 
   const summary =
-    `Температура от ${chartDegrees(min)} до ${chartDegrees(max)}, ` +
+    `Температура от ${chartDegrees(min, units)} до ${chartDegrees(max, units)}, ` +
     `максимум в ${hours[maxIndex].clock}`;
   const svg = makeSvg("svg", {
     class: "chart-svg",
@@ -163,7 +167,7 @@ function buildTemperatureChart(items) {
     const point = points[mark.index];
     svg.append(makeSvg("circle", { class: "chart-mark", cx: point.x, cy: point.y, r: 3 }));
     svg.append(
-      makeSvgText(chartDegrees(hours[mark.index].temperature), {
+      makeSvgText(chartDegrees(hours[mark.index].temperature, units), {
         class: "chart-value",
         x: point.x,
         y: mark.above ? point.y - 10 : point.y + 18,

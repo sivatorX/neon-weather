@@ -26,9 +26,19 @@ function roundDegrees(value) {
   return Math.round(value) + 0;
 }
 
-// "-5°"
-function formatDegrees(value) {
-  return `${roundDegrees(value)}°`;
+// The units object comes from app.js (see units.js):
+//   { code: "C" or "F", temp(celsius) -> shown number, delta(celsiusDifference) -> shown number }
+// All data here stays in Celsius; only the numbers inside texts are converted.
+const CELSIUS_UNITS = { code: "C", temp: (value) => value, delta: (value) => value };
+
+// A temperature point as text: "-5°" (or "23°" in Fahrenheit)
+function formatDegrees(value, units) {
+  return `${roundDegrees(units.temp(value))}°`;
+}
+
+// A difference as text. It must use delta, not temp (a difference has no +32).
+function formatDifference(value, units) {
+  return `${roundDegrees(units.delta(value))}°`;
 }
 
 // "2026-10-26" + 1 -> "2026-10-27". We use UTC only to add days: it has no summer time.
@@ -87,7 +97,7 @@ function chooseClothesIcon(minApparent) {
 }
 
 // Returns a list of rows { icon, text }: the clothes first, then warnings.
-function buildClothesAdvice(hours, currentTime) {
+function buildClothesAdvice(hours, currentTime, units) {
   const rest = getRestOfToday(hours, currentTime);
   const apparentValues = rest.map((hour) => hour.apparent).filter(isNumberValue);
   if (apparentValues.length === 0) {
@@ -96,7 +106,15 @@ function buildClothesAdvice(hours, currentTime) {
   const coldest = minOf(apparentValues);
   const warmest = maxOf(apparentValues);
 
-  const rows = [{ icon: chooseClothesIcon(coldest), text: `Что надеть: ${chooseClothes(coldest)}` }];
+  // "kind" and "short" let the share button reuse the advice without parsing the text
+  const rows = [
+    {
+      kind: "clothes",
+      icon: chooseClothesIcon(coldest),
+      short: chooseClothes(coldest),
+      text: `Что надеть: ${chooseClothes(coldest)}`,
+    },
+  ];
 
   // The first hour with a high chance of rain or snow
   const wetHour = rest.find((hour) => isNumberValue(hour.rain) && hour.rain >= RAIN_CHANCE_LIMIT);
@@ -115,8 +133,8 @@ function buildClothesAdvice(hours, currentTime) {
   }
 
   if (warmest - coldest >= BIG_SWING) {
-    const swing = roundDegrees(warmest - coldest);
-    rows.push({ icon: "🧣", text: `Днём и вечером разница ${swing}°: одевайтесь слоями` });
+    const swing = formatDifference(warmest - coldest, units);
+    rows.push({ icon: "🧣", text: `Днём и вечером разница ${swing}: одевайтесь слоями` });
   }
   return rows;
 }
@@ -181,13 +199,13 @@ function pickBestWindow(windows) {
   return [...windows].sort(compareWalkWindows)[0];
 }
 
-function describeWalkWindow(walkWindow) {
+function describeWalkWindow(walkWindow, units) {
   const weather = walkWindow.rainy ? `дождь ${Math.round(walkWindow.maxRain)}%` : "без дождя";
-  return `${walkWindow.start}–${walkWindow.end} (${formatDegrees(walkWindow.temperature)}, ${weather})`;
+  return `${walkWindow.start}–${walkWindow.end} (${formatDegrees(walkWindow.temperature, units)}, ${weather})`;
 }
 
 // Returns one row { icon, text } or null when there is no good day hour at all
-function buildWalkAdvice(hours, currentTime) {
+function buildWalkAdvice(hours, currentTime, units) {
   if (!isLocalTime(currentTime)) {
     return null;
   }
@@ -199,8 +217,8 @@ function buildWalkAdvice(hours, currentTime) {
   if (todayWindows.length > 0) {
     const best = pickBestWindow(todayWindows);
     const text = todayWindows.every((walkWindow) => walkWindow.rainy)
-      ? `Сегодня весь день дождь — лучшее окно: ${describeWalkWindow(best)}`
-      : `Лучшее время для прогулки: ${describeWalkWindow(best)}`;
+      ? `Сегодня весь день дождь — лучшее окно: ${describeWalkWindow(best, units)}`
+      : `Лучшее время для прогулки: ${describeWalkWindow(best, units)}`;
     return { icon: "🚶", text: text };
   }
 
@@ -212,8 +230,8 @@ function buildWalkAdvice(hours, currentTime) {
   }
   const best = pickBestWindow(tomorrowWindows);
   const text = tomorrowWindows.every((walkWindow) => walkWindow.rainy)
-    ? `Завтра весь день дождь — лучшее окно: ${describeWalkWindow(best)}`
-    : `Лучшее время для прогулки: завтра ${describeWalkWindow(best)}`;
+    ? `Завтра весь день дождь — лучшее окно: ${describeWalkWindow(best, units)}`
+    : `Лучшее время для прогулки: завтра ${describeWalkWindow(best, units)}`;
   return { icon: "🚶", text: text };
 }
 
@@ -221,7 +239,7 @@ function buildWalkAdvice(hours, currentTime) {
 
 // Compares the temperature of this hour with the same hour yesterday.
 // Returns one row { icon, text } or null when one of the two hours is missing.
-function buildYesterdayComparison(hours, currentTime) {
+function buildYesterdayComparison(hours, currentTime, units) {
   if (!isLocalTime(currentTime)) {
     return null;
   }
@@ -238,7 +256,7 @@ function buildYesterdayComparison(hours, currentTime) {
   if (Math.abs(difference) < SAME_TEMPERATURE_LIMIT) {
     return { icon: "📊", text: "Так же, как вчера в это время" };
   }
-  const size = formatDegrees(Math.abs(difference));
+  const size = formatDifference(Math.abs(difference), units);
   const word = difference > 0 ? "теплее" : "холоднее";
   return { icon: "📊", text: `Сейчас на ${size} ${word}, чем вчера в это время` };
 }
@@ -261,17 +279,17 @@ function buildAirAdvice(aqi) {
 
 // Returns a list of rows { icon, text }. An empty list means "nothing to show".
 // airQuality (optional) is the European AQI number or null.
-function buildInsights(hours, currentTime, airQuality = null) {
-  const rows = buildClothesAdvice(hours, currentTime);
+function buildInsights(hours, currentTime, airQuality = null, units = CELSIUS_UNITS) {
+  const rows = buildClothesAdvice(hours, currentTime, units);
   const airAdvice = buildAirAdvice(airQuality);
   if (airAdvice) {
     rows.push(airAdvice);
   }
-  const walk = buildWalkAdvice(hours, currentTime);
+  const walk = buildWalkAdvice(hours, currentTime, units);
   if (walk) {
     rows.push(walk);
   }
-  const comparison = buildYesterdayComparison(hours, currentTime);
+  const comparison = buildYesterdayComparison(hours, currentTime, units);
   if (comparison) {
     rows.push(comparison);
   }
@@ -291,29 +309,48 @@ function degreesWord(number) {
   return "градусов";
 }
 
-// -5 -> "минус 5 градусов"
-function speakDegrees(value) {
-  const rounded = roundDegrees(value);
+// A whole number that is ALREADY in the shown unit: -5 -> "минус 5 градусов".
+// For Fahrenheit we add "по Фаренгейту", otherwise "63 градуса" would sound like Celsius.
+function speakDegrees(shownValue, unitCode) {
+  const rounded = roundDegrees(shownValue);
   const sign = rounded < 0 ? "минус " : "";
-  return `${sign}${Math.abs(rounded)} ${degreesWord(rounded)}`;
+  const scale = unitCode === "F" ? " по Фаренгейту" : "";
+  return `${sign}${Math.abs(rounded)} ${degreesWord(rounded)}${scale}`;
 }
 
 // Make a row text easier to say: "12°" -> "12 градусов", "13:00–15:00" -> "с 13:00 до 15:00"
-function makeSpeakable(text) {
+// The numbers in a row text are already in the shown unit.
+function makeSpeakable(text, unitCode) {
   return text
-    .replace(/(-?\d+)°/g, (match, digits) => speakDegrees(Number(digits)))
+    .replace(/(-?\d+)°/g, (match, digits) => speakDegrees(Number(digits), unitCode))
     .replace(/(\d\d:\d\d)–(\d\d:\d\d)/g, "с $1 до $2")
     .replace(/ м\/с/g, " метров в секунду");
 }
 
 // One text for the speech engine: city, now, then every row as a sentence
-function buildSpeechText(cityName, temperature, description, rows) {
+function buildSpeechText(cityName, temperature, description, rows, units = CELSIUS_UNITS) {
   const sentences = [
     `${cityName}.`,
-    `Сейчас ${speakDegrees(temperature)}, ${description.toLowerCase()}.`,
+    `Сейчас ${speakDegrees(units.temp(temperature), units.code)}, ${description.toLowerCase()}.`,
   ];
   for (const row of rows) {
-    sentences.push(`${makeSpeakable(row.text)}.`);
+    sentences.push(`${makeSpeakable(row.text, units.code)}.`);
   }
   return sentences.join(" ");
+}
+
+// ---------- 5. Text for the "share" button ----------
+
+// "Бишкек: 9°, ясно. Ощущается как 6°. 🧥 Куртка. — Неоновая погода"
+// rows: the list from buildInsights (the clothes row is optional).
+function buildShareText(cityName, temperature, apparent, description, rows, units = CELSIUS_UNITS) {
+  let text =
+    `${cityName}: ${formatDegrees(temperature, units)}, ${description.toLowerCase()}. ` +
+    `Ощущается как ${formatDegrees(apparent, units)}.`;
+  const clothes = rows.find((row) => row.kind === "clothes");
+  if (clothes) {
+    const short = clothes.short.charAt(0).toUpperCase() + clothes.short.slice(1);
+    text += ` ${clothes.icon} ${short}.`;
+  }
+  return `${text} — Неоновая погода`;
 }
