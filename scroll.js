@@ -14,7 +14,8 @@ const toTopButton = document.getElementById("to-top");
 const scrollMarker = document.getElementById("scroll-marker");
 
 // Blocks that fade in when they reach the screen
-const REVEAL_SELECTOR = ".assistant-card, #hourly .panel, #daily .panel, #daily .day-row";
+const REVEAL_SELECTOR =
+  ".assistant-card, #hourly .panel, #chart .panel, #sun .panel, #air .panel, #daily .panel, #daily .day-row, #radar .panel";
 
 let revealObserver = null;
 let temperatureObserver = null;

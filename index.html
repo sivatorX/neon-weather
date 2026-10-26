@@ -10,10 +10,17 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira+Stencil+One&display=swap">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="background.css">
+  <link rel="stylesheet" href="charts.css">
+  <!-- Leaflet (map library) from a CDN; integrity = the browser refuses the file if it was changed -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="radar.css">
   <script src="background.js" defer></script>
   <script src="insights.js" defer></script>
   <script src="storage.js" defer></script>
   <script src="scroll.js" defer></script>
+  <script src="charts.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
+  <script src="radar.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -65,8 +72,16 @@
     <!-- Next hours: filled in a later step -->
     <section id="hourly" aria-label="Ближайшие часы"></section>
 
+    <!-- 24-hour temperature chart, sun arc and air quality: built by charts.js, placed by app.js -->
+    <section id="chart" aria-label="Температура на 24 часа"></section>
+    <section id="sun" aria-label="Солнце"></section>
+    <section id="air" aria-label="Воздух"></section>
+
     <!-- 7-day forecast: filled in a later step -->
     <section id="daily" aria-label="Прогноз на 7 дней"></section>
+
+    <!-- Precipitation radar map: radar.js builds it (showRadar / hideRadar) -->
+    <section id="radar" aria-label="Радар осадков"></section>
   </main>
 
 </body>

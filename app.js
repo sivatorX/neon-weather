@@ -9,6 +9,9 @@ const todaySection = document.getElementById("today");
 const assistantSection = document.getElementById("assistant");
 const hourlySection = document.getElementById("hourly");
 const dailySection = document.getElementById("daily");
+const chartSection = document.getElementById("chart");
+const sunSection = document.getElementById("sun");
+const airSection = document.getElementById("air");
 const locateButton = document.getElementById("locate-button");
 const favouritesSection = document.getElementById("favourites");
 
@@ -40,6 +43,7 @@ let isBusy = false;
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+const AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality";
 
 const NETWORK_ERROR_MESSAGE =
   "Нет связи с интернетом. Проверьте подключение и попробуйте ещё раз.";
@@ -355,7 +359,8 @@ async function fetchHourlyDaily(place) {
     `${FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
     "&hourly=temperature_2m,apparent_temperature,wind_speed_10m," +
     "weather_code,precipitation_probability,is_day" +
-    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max," +
+    "sunrise,sunset" +
     `&models=${MODELS.map((model) => model.id).join(",")}` +
     `&forecast_days=7&past_days=${PAST_DAYS}&wind_speed_unit=ms` +
     `&timezone=auto${elevationPart}`;
@@ -545,6 +550,86 @@ function renderDaily(items) {
   dailySection.replaceChildren(createPanel("Прогноз на 7 дней", list));
 }
 
+// ---------- Chart, sun and air panels (the drawing is in charts.js) ----------
+
+// Is this a text like "2026-10-26T07:28"?
+function isLocalTimeText(text) {
+  return typeof text === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(text);
+}
+
+// Like firstAt, but for texts (sunrise and sunset are texts, not numbers)
+function firstTextAt(section, field, index) {
+  for (const model of MODELS) {
+    const list = section[`${field}_${model.id}`];
+    if (Array.isArray(list) && isLocalTimeText(list[index])) {
+      return list[index];
+    }
+  }
+  return null;
+}
+
+// Sunrise and sunset of TODAY. The list starts yesterday, so we look for today's
+// date instead of using a fixed index. Returns null when something is missing
+// (near the poles the sun may not rise or set at all).
+function readSunTimes(daily, currentTime) {
+  if (!Array.isArray(daily.time) || !isLocalTimeText(currentTime)) {
+    return null;
+  }
+  const todayIndex = daily.time.indexOf(currentTime.slice(0, 10));
+  if (todayIndex === -1) {
+    return null;
+  }
+  const sunrise = firstTextAt(daily, "sunrise", todayIndex);
+  const sunset = firstTextAt(daily, "sunset", todayIndex);
+  if (sunrise === null || sunset === null) {
+    return null;
+  }
+  // Tomorrow's sunrise is needed for "до восхода" after sunset
+  return { sunrise, sunset, nextSunrise: firstTextAt(daily, "sunrise", todayIndex + 1) };
+}
+
+function renderChart(items) {
+  chartSection.replaceChildren();
+  const chart = buildTemperatureChart(items);
+  if (chart) {
+    chartSection.append(createPanel("Температура на 24 часа", chart));
+  }
+}
+
+function renderSun(daily, currentTime) {
+  sunSection.replaceChildren();
+  const content = buildSunContent(readSunTimes(daily, currentTime), currentTime);
+  if (content) {
+    sunSection.append(createPanel("Солнце", content));
+  }
+}
+
+// Air quality has its own server. If it fails we simply show no air panel.
+async function fetchAirQuality(place) {
+  const url =
+    `${AIR_QUALITY_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
+    "&current=european_aqi,pm2_5,pm10&timezone=auto";
+  const data = await fetchJson(url);
+
+  const current = data && data.current;
+  if (!current || !isNumber(current.european_aqi)) {
+    throw new Error("Нет данных о воздухе");
+  }
+  return {
+    aqi: current.european_aqi,
+    pm25: isNumber(current.pm2_5) ? current.pm2_5 : null,
+    pm10: isNumber(current.pm10) ? current.pm10 : null,
+  };
+}
+
+function renderAir(air) {
+  airSection.replaceChildren();
+  const content = buildAirContent(air);
+  if (content) {
+    airSection.append(createPanel("Воздух", content));
+  }
+}
+
 // Small friendly message inside the forecast sections
 function renderForecastError() {
   hourlySection.replaceChildren(createElement("p", "forecast-error", FORECAST_ERROR_MESSAGE));
@@ -560,6 +645,8 @@ function renderForecast(data, currentTime) {
     return false;
   }
   renderHourly(hourlyItems);
+  renderChart(hourlyItems); // same 24 hours as the cards: no new request
+  renderSun(data.daily, currentTime);
   renderDaily(dailyItems);
   return true;
 }
@@ -629,9 +716,10 @@ function createSpeakButton(speechText) {
   return button;
 }
 
-function renderAssistant(place, current, data) {
+// air may be null (air request failed): then the assistant just skips the air row
+function renderAssistant(place, current, data, air) {
   assistantSection.replaceChildren(); // start clean: no forecast = no assistant
-  const rows = buildInsights(buildHourSeries(data.hourly), current.time);
+  const rows = buildInsights(buildHourSeries(data.hourly), current.time, air ? air.aqi : null);
   if (rows.length === 0) {
     return;
   }
@@ -685,10 +773,11 @@ async function loadWeather(place) {
   todaySection.classList.add("is-loading"); // pulsing placeholder (CSS)
 
   try {
-    // Both requests run at the same time; allSettled lets one fail alone
-    const [currentResult, forecastResult] = await Promise.allSettled([
+    // All requests run at the same time; allSettled lets one fail alone
+    const [currentResult, forecastResult, airResult] = await Promise.allSettled([
       fetchForecast(place),
       fetchHourlyDaily(place),
+      fetchAirQuality(place),
     ]);
     if (currentResult.status === "rejected") {
       throw currentResult.reason; // no current weather: this is a real error
@@ -698,10 +787,17 @@ async function loadWeather(place) {
     renderToday(place, currentResult.value);
     saveLastPlace(place); // only a place that really loaded is worth remembering
     showBackground(currentResult.value);
+    // The radar lives in radar.js and never throws; no await, the map loads on its own
+    if (typeof showRadar === "function") {
+      showRadar(place.latitude, place.longitude, place.name);
+    }
+    // A failed air request is not an error for the user: the panel just stays away
+    const air = airResult.status === "fulfilled" ? airResult.value : null;
+    renderAir(air);
     if (forecastResult.status === "fulfilled") {
       const forecastShown = renderForecast(forecastResult.value, currentResult.value.time);
       if (forecastShown) {
-        renderAssistant(place, currentResult.value, forecastResult.value);
+        renderAssistant(place, currentResult.value, forecastResult.value, air);
       }
     } else {
       renderForecastError(); // the current card is still useful, so keep it
@@ -791,7 +887,11 @@ function clearResults() {
   showHeaderDate(null); // no city on the screen: back to the phone's date
   assistantSection.replaceChildren();
   hourlySection.replaceChildren();
+  chartSection.replaceChildren();
+  sunSection.replaceChildren();
+  airSection.replaceChildren();
   dailySection.replaceChildren();
+  if (typeof hideRadar === "function") hideRadar();
 }
 
 // ---------- Favourites ----------

@@ -29,7 +29,7 @@ New skills for this project: `fetch`, `async/await`, JSON, loading states, error
   4. ✅ Live background: changes with weather and day/night (sun, rain drops, snow, stars).
   5. ✅ Assistant panel: what to wear, best time for a walk, compare with yesterday, read aloud (`insights.js`).
   6. ✅ "My location" button + favourite cities (`localStorage`).
-  7. 24-hour temperature chart, sunrise/sunset, air quality (`https://air-quality-api.open-meteo.com/v1/air-quality`, no key).
+  7. ✅ 24-hour temperature chart, sunrise/sunset, air quality (`https://air-quality-api.open-meteo.com/v1/air-quality`, no key).
   8. Publish on GitHub Pages.
 - Optional later: "use my location" (`navigator.geolocation`), °C/°F switch, saved favourite cities (`localStorage`), a temperature chart.
 - Never put secret API keys in this repo. A service that needs a key needs a small server; that is a level 3 topic.

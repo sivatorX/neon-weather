@@ -243,11 +243,30 @@ function buildYesterdayComparison(hours, currentTime) {
   return { icon: "📊", text: `Сейчас на ${size} ${word}, чем вчера в это время` };
 }
 
+// ---------- 4. Bad air ----------
+
+const BAD_AIR_LIMIT = 60; // European AQI from which the air is "poor"
+
+// One row { icon, text } when the air is bad, otherwise null.
+// aqi may be null (no air data): then there is no row.
+function buildAirAdvice(aqi) {
+  if (!isNumberValue(aqi) || aqi < BAD_AIR_LIMIT) {
+    return null;
+  }
+  const word = aqi > 100 ? "ужасное" : aqi > 80 ? "очень плохое" : "плохое";
+  return { icon: "😷", text: `Воздух ${word} (AQI ${Math.round(aqi)}): лучше не гулять долго` };
+}
+
 // ---------- All rows together ----------
 
 // Returns a list of rows { icon, text }. An empty list means "nothing to show".
-function buildInsights(hours, currentTime) {
+// airQuality (optional) is the European AQI number or null.
+function buildInsights(hours, currentTime, airQuality = null) {
   const rows = buildClothesAdvice(hours, currentTime);
+  const airAdvice = buildAirAdvice(airQuality);
+  if (airAdvice) {
+    rows.push(airAdvice);
+  }
   const walk = buildWalkAdvice(hours, currentTime);
   if (walk) {
     rows.push(walk);

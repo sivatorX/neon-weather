@@ -1,0 +1,131 @@
+/* Precipitation radar panel. The panel itself uses the shared ".panel" and ".section-title" styles. */
+
+/* The map box has a fixed height; overflow hidden keeps the rounded corners and the page never scrolls sideways */
+.radar-map {
+  position: relative;
+  height: 300px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1.5px solid var(--neon);
+  border-radius: var(--radius-tile);
+  box-shadow: var(--glow-line);
+}
+
+/* "hidden" must win over any display rule */
+.radar-map[hidden],
+.radar-controls[hidden],
+.radar-credit[hidden],
+.radar-message[hidden],
+#radar[hidden] {
+  display: none;
+}
+
+.radar-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 12px;
+}
+
+.radar-play {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--neon);
+  background: rgba(5, 10, 24, 0.6);
+  border: 1.5px solid var(--neon);
+  border-radius: 50%;
+  box-shadow: var(--glow-line);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.radar-play:hover {
+  color: var(--neon-ink);
+  background: var(--neon);
+  box-shadow: var(--glow-strong);
+}
+
+.radar-play:active {
+  transform: scale(0.95);
+}
+
+.radar-play:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.radar-time {
+  min-width: 0;
+  font-size: 14px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.radar-credit {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.radar-credit a,
+.radar-map .leaflet-control-attribution a {
+  color: var(--neon);
+}
+
+/* The error text is the same as in the other panels; no extra padding here */
+.radar-message {
+  padding: 0;
+}
+
+/* ---------- Leaflet controls in the neon look ---------- */
+
+.radar-map .leaflet-control-attribution {
+  font-size: 10px;
+  color: var(--muted);
+  background: rgba(5, 10, 24, 0.78);
+}
+
+.radar-map .leaflet-bar {
+  border: 1px solid var(--neon);
+  box-shadow: var(--glow-line);
+}
+
+.radar-map .leaflet-bar a {
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  color: var(--neon);
+  background: rgba(5, 10, 24, 0.85);
+  border-bottom-color: var(--tile-border);
+}
+
+.radar-map .leaflet-bar a:hover {
+  color: var(--neon-ink);
+  background: var(--neon);
+}
+
+.radar-map .leaflet-bar a.leaflet-disabled {
+  color: var(--muted);
+  background: rgba(5, 10, 24, 0.85);
+  opacity: 0.6;
+}
+
+/* The glowing dot at the city */
+.radar-dot-wrap {
+  background: none;
+  border: none;
+}
+
+.radar-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 3px;
+  background: var(--pink);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 6px var(--pink), 0 0 16px var(--pink);
+}
