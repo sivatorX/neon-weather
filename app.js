@@ -527,6 +527,7 @@ async function loadWeather(place) {
 
     // Success state
     renderToday(place, currentResult.value);
+    showBackground(currentResult.value);
     if (forecastResult.status === "fulfilled") {
       renderForecast(forecastResult.value, currentResult.value.time);
     } else {
@@ -536,9 +537,24 @@ async function loadWeather(place) {
   } catch (error) {
     // Error state
     setStatus(error.message);
+    hideBackground();
   } finally {
     // Runs after success and after error, so the button never stays locked
     searchButton.disabled = false;
+  }
+}
+
+// The live background lives in background.js. If that file failed to load,
+// the app still works, just without the animation.
+function showBackground(current) {
+  if (typeof setWeatherBackground === "function") {
+    setWeatherBackground(current.weatherCode, current.isDay === 1);
+  }
+}
+
+function hideBackground() {
+  if (typeof clearWeatherBackground === "function") {
+    clearWeatherBackground();
   }
 }
 
@@ -572,6 +588,7 @@ async function handleSearch(event) {
   } catch (error) {
     // Error state
     setStatus(error.message);
+    hideBackground();
   } finally {
     // Runs after success and after error, so the button never stays locked
     searchButton.disabled = false;

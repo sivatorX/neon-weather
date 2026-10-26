@@ -1,0 +1,230 @@
+/* Live weather background. background.js builds the .weather-bg element and its particles. */
+
+/* Sky colors are variables, so each scene only changes two values.
+   Light scheme: pale skies (dark text stays readable). Dark scheme: deep skies (light text stays readable). */
+.weather-bg {
+  --sky-top: var(--bg);
+  --sky-bottom: var(--bg);
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden; /* particles never cause sideways scrolling */
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+}
+
+/* ---------- Sky colors per scene ---------- */
+.weather-bg--clear.weather-bg--day { --sky-top: #bfe0ff; --sky-bottom: #ffe9c4; }
+.weather-bg--clear.weather-bg--night { --sky-top: #a9b6e6; --sky-bottom: #cfd3ee; }
+.weather-bg--cloudy { --sky-top: #cfd8e2; --sky-bottom: #e6ebf0; }
+.weather-bg--cloudy.weather-bg--night { --sky-top: #aab4c4; --sky-bottom: #c6cdd8; }
+.weather-bg--rain { --sky-top: #a9b8c8; --sky-bottom: #cdd6df; }
+.weather-bg--snow { --sky-top: #d3dfec; --sky-bottom: #eef3f8; }
+.weather-bg--storm { --sky-top: #8f9bab; --sky-bottom: #b3bcc8; }
+
+@media (prefers-color-scheme: dark) {
+  .weather-bg--clear.weather-bg--day { --sky-top: #1f4f86; --sky-bottom: #4a5f80; }
+  .weather-bg--clear.weather-bg--night { --sky-top: #070d1f; --sky-bottom: #172a52; }
+  .weather-bg--cloudy { --sky-top: #28323d; --sky-bottom: #3b4653; }
+  .weather-bg--cloudy.weather-bg--night { --sky-top: #131a22; --sky-bottom: #222c37; }
+  .weather-bg--rain { --sky-top: #1c2630; --sky-bottom: #2f3d4a; }
+  .weather-bg--snow { --sky-top: #2a3644; --sky-bottom: #46566a; }
+  .weather-bg--storm { --sky-top: #0e141b; --sky-bottom: #232e3a; }
+}
+
+/* ---------- Sun and moon ---------- */
+.bg-sun,
+.bg-moon {
+  position: absolute;
+  top: 8%;
+  right: 12%;
+  border-radius: 50%;
+}
+
+.bg-sun {
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(circle, #fff6c9 0%, #ffd45e 60%, #ffb733 100%);
+  box-shadow: 0 0 50px 25px rgba(255, 200, 80, 0.55);
+  animation: sun-glow 6s ease-in-out infinite alternate;
+}
+
+/* The crescent is a circle with an inner shadow cut by an offset shadow */
+.bg-moon {
+  width: 64px;
+  height: 64px;
+  background: transparent;
+  box-shadow: -14px 6px 0 0 #f4f1d8, 0 0 30px 6px rgba(244, 241, 216, 0.35);
+  transform: translateX(14px);
+}
+
+@keyframes sun-glow {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(1.08); opacity: 1; }
+}
+
+/* ---------- Stars ---------- */
+.bg-star {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.8);
+  animation: twinkle var(--duration) ease-in-out var(--delay) infinite alternate;
+}
+
+@keyframes twinkle {
+  from { opacity: 0.2; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
+/* ---------- Clouds ---------- */
+/* A cloud is a soft rounded bar plus two round "puffs" */
+.bg-cloud {
+  position: absolute;
+  top: var(--y);
+  left: var(--x);
+  width: 140px;
+  height: 40px;
+  background: #ffffff; /* solid color + opacity on the whole cloud: no seams between puffs */
+  border-radius: 40px;
+  opacity: calc(var(--opacity) * 0.8);
+  scale: var(--scale);
+  animation: drift var(--duration) ease-in-out var(--delay) infinite alternate;
+}
+
+.bg-cloud::before,
+.bg-cloud::after {
+  content: "";
+  position: absolute;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.bg-cloud::before {
+  width: 60px;
+  height: 60px;
+  left: 22px;
+  top: -28px;
+}
+
+.bg-cloud::after {
+  width: 76px;
+  height: 76px;
+  left: 62px;
+  top: -40px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-cloud { background: #6b7a8a; opacity: calc(var(--opacity) * 0.4); }
+}
+
+/* Clouds sway slowly left and right; they never leave the screen area */
+@keyframes drift {
+  from { transform: translateX(-9vw); }
+  to { transform: translateX(9vw); }
+}
+
+/* Fog: a few wide soft bands */
+.bg-haze {
+  position: absolute;
+  left: -10%;
+  width: 120%;
+  height: 22%;
+  top: var(--y);
+  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.5), transparent);
+  animation: haze-move var(--duration) ease-in-out var(--delay) infinite alternate;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-haze { background: linear-gradient(to bottom, transparent, rgba(150, 165, 182, 0.3), transparent); }
+}
+
+@keyframes haze-move {
+  from { transform: translateX(-4vw); opacity: 0.5; }
+  to { transform: translateX(4vw); opacity: 1; }
+}
+
+/* ---------- Rain ---------- */
+.bg-drop {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: 2px;
+  height: 16px;
+  background: rgba(60, 100, 150, 0.55);
+  border-radius: 1px;
+  opacity: 0;
+  animation: fall var(--duration) linear var(--delay) infinite;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bg-drop { background: rgba(170, 200, 235, 0.6); }
+}
+
+/* Drops move down and a bit left; the tilt matches the direction */
+@keyframes fall {
+  0% { transform: translate(0, -5vh) rotate(10deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(-18vh, 105vh) rotate(10deg); opacity: 0; }
+}
+
+/* ---------- Snow ---------- */
+.bg-flake {
+  position: absolute;
+  top: 0;
+  left: var(--x);
+  width: var(--size);
+  height: var(--size);
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(120, 150, 190, 0.6);
+  opacity: 0;
+  animation: snowfall var(--duration) linear var(--delay) infinite;
+}
+
+/* --drift is the sideways distance, so every flake wanders a little differently */
+@keyframes snowfall {
+  0% { transform: translate(0, -5vh); opacity: 0; }
+  10% { opacity: 0.9; }
+  90% { opacity: 0.9; }
+  100% { transform: translate(var(--drift), 105vh); opacity: 0; }
+}
+
+/* ---------- Lightning ---------- */
+.bg-lightning {
+  position: absolute;
+  inset: 0;
+  background: #ffffff; /* solid color + opacity on the whole cloud: no seams between puffs */
+  opacity: 0;
+  animation: flash 9s linear var(--delay) infinite;
+}
+
+/* Mostly dark: two quick flashes near the start of each cycle */
+@keyframes flash {
+  0%, 100% { opacity: 0; }
+  3% { opacity: 0.7; }
+  5% { opacity: 0.1; }
+  7% { opacity: 0.55; }
+  12% { opacity: 0; }
+}
+
+/* ---------- Reduced motion: keep a calm, still picture ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .weather-bg *,
+  .weather-bg *::before,
+  .weather-bg *::after {
+    animation: none !important;
+  }
+
+  /* Falling things have no sensible still pose, so hide them */
+  .bg-drop,
+  .bg-flake,
+  .bg-lightning {
+    display: none;
+  }
+}
