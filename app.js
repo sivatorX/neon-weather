@@ -6,6 +6,7 @@ const searchButton = searchForm.querySelector("button");
 const statusElement = document.getElementById("status");
 const cityChoicesSection = document.getElementById("city-choices");
 const todaySection = document.getElementById("today");
+const assistantSection = document.getElementById("assistant");
 const hourlySection = document.getElementById("hourly");
 const dailySection = document.getElementById("daily");
 
@@ -299,16 +300,23 @@ const MONTHS = [
   "июл", "авг", "сен", "окт", "ноя", "дек",
 ];
 
+// We also ask for yesterday (past_days), to compare today with it.
+// So the hourly and daily lists START YESTERDAY: index 0 is not today any more.
+const PAST_DAYS = 1;
+const HOURS_PER_DAY = 24;
+
 // Get hourly + daily data of ALL models in one request.
 // Here the field names have the model in the end, like temperature_2m_icon_seamless.
 async function fetchHourlyDaily(place) {
   const elevationPart = place.elevation === null ? "" : `&elevation=${place.elevation}`;
   const url =
     `${FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
-    "&hourly=temperature_2m,weather_code,precipitation_probability,is_day" +
+    "&hourly=temperature_2m,apparent_temperature,wind_speed_10m," +
+    "weather_code,precipitation_probability,is_day" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
     `&models=${MODELS.map((model) => model.id).join(",")}` +
-    `&forecast_days=7&timezone=auto${elevationPart}`;
+    `&forecast_days=7&past_days=${PAST_DAYS}&wind_speed_unit=ms` +
+    `&timezone=auto${elevationPart}`;
   const data = await fetchJson(url);
 
   if (!data || !data.hourly || !data.daily) {
@@ -348,9 +356,11 @@ function buildHourlyItems(hourly, currentTime) {
   // Both are local times of the city like "2026-10-26T15:45".
   // Cutting to "2026-10-26T15" lets us compare them as plain text.
   const startHour = typeof currentTime === "string" ? currentTime.slice(0, 13) : "";
+  // Without the current time we cannot find "now", so at least skip yesterday
+  const firstIndex = startHour === "" ? PAST_DAYS * HOURS_PER_DAY : 0;
 
   const items = [];
-  for (let index = 0; index < hourly.time.length && items.length < 24; index++) {
+  for (let index = firstIndex; index < hourly.time.length && items.length < 24; index++) {
     const time = hourly.time[index];
     if (typeof time !== "string" || time.slice(0, 13) < startHour) {
       continue;
@@ -378,6 +388,11 @@ function buildDailyItems(daily) {
   }
   const items = [];
   daily.time.forEach((date, index) => {
+    // The first PAST_DAYS days are in the past: the list starts at "Сегодня"
+    const dayNumber = index - PAST_DAYS;
+    if (dayNumber < 0) {
+      return;
+    }
     const min = averageAt(daily, "temperature_2m_min", index);
     const max = averageAt(daily, "temperature_2m_max", index);
     const weatherCode = firstAt(daily, "weather_code", index);
@@ -386,7 +401,7 @@ function buildDailyItems(daily) {
     }
     items.push({
       date: date,
-      dayNumber: index, // 0 = today, 1 = tomorrow
+      dayNumber: dayNumber, // 0 = today, 1 = tomorrow
       min: min,
       max: max,
       weatherCode: weatherCode,
@@ -477,15 +492,112 @@ function renderForecastError() {
   dailySection.replaceChildren();
 }
 
+// Returns true when the forecast was shown, false when it had to show an error
 function renderForecast(data, currentTime) {
   const hourlyItems = buildHourlyItems(data.hourly, currentTime);
   const dailyItems = buildDailyItems(data.daily);
   if (hourlyItems.length === 0 || dailyItems.length === 0) {
     renderForecastError();
-    return;
+    return false;
   }
   renderHourly(hourlyItems);
   renderDaily(dailyItems);
+  return true;
+}
+
+// ---------- Assistant panel (the advice itself is made in insights.js) ----------
+
+// ALL hours of the answer (yesterday too), as simple objects for insights.js.
+// Temperatures and wind: average of the models, like the rest of the app
+// (one model with a strange value then matters less). Rain, code, day: first model.
+function buildHourSeries(hourly) {
+  if (!Array.isArray(hourly.time)) {
+    return [];
+  }
+  const hours = [];
+  hourly.time.forEach((time, index) => {
+    const temperature = averageAt(hourly, "temperature_2m", index);
+    if (typeof time !== "string" || temperature === null) {
+      return; // skip a broken hour
+    }
+    hours.push({
+      time: time,
+      temperature: temperature,
+      apparent: averageAt(hourly, "apparent_temperature", index),
+      wind: averageAt(hourly, "wind_speed_10m", index),
+      rain: firstAt(hourly, "precipitation_probability", index),
+      weatherCode: firstAt(hourly, "weather_code", index),
+      isDay: firstAt(hourly, "is_day", index),
+    });
+  });
+  return hours;
+}
+
+// Speech works only in browsers that have it. We check it before we use it.
+function canSpeak() {
+  return "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
+}
+
+function stopSpeaking() {
+  if (canSpeak()) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+// One button: first press reads the text, second press stops it
+function createSpeakButton(speechText) {
+  const button = createElement("button", "speak-button", "🔊 Прочитать вслух");
+  button.type = "button";
+  button.dataset.speech = speechText; // handy to see what will be said
+
+  const resetButton = () => {
+    button.textContent = "🔊 Прочитать вслух";
+  };
+
+  button.addEventListener("click", () => {
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel(); // second press = stop
+      resetButton();
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = "ru-RU";
+    utterance.onend = resetButton;
+    utterance.onerror = resetButton;
+    window.speechSynthesis.speak(utterance);
+    button.textContent = "⏹ Остановить";
+  });
+  return button;
+}
+
+function renderAssistant(place, current, data) {
+  assistantSection.replaceChildren(); // start clean: no forecast = no assistant
+  const rows = buildInsights(buildHourSeries(data.hourly), current.time);
+  if (rows.length === 0) {
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "assistant-list";
+  for (const row of rows) {
+    const rowElement = document.createElement("div");
+    rowElement.className = "assistant-row";
+    const icon = createElement("span", "assistant-icon", row.icon);
+    icon.setAttribute("aria-hidden", "true"); // the text says the same
+    rowElement.append(icon, createElement("span", "assistant-text", row.text));
+    list.append(rowElement);
+  }
+
+  const panel = document.createElement("div");
+  panel.className = "assistant-card";
+  panel.append(createElement("h2", "section-title", "Помощник"), list);
+
+  if (canSpeak()) {
+    const info = getWeatherInfo(current.weatherCode, current.isDay);
+    const speechText = buildSpeechText(place.name, current.temperature, info.text, rows);
+    panel.append(createSpeakButton(speechText));
+  }
+  assistantSection.append(panel);
 }
 
 // "Париж — Франция, Иль-де-Франс": only the parts that exist
@@ -511,7 +623,9 @@ async function loadWeather(place) {
   setStatus("Загружаю погоду…");
   searchButton.disabled = true;
   cityChoicesSection.replaceChildren(); // the choice is made, hide the list
+  stopSpeaking();
   todaySection.replaceChildren();
+  assistantSection.replaceChildren();
   hourlySection.replaceChildren();
   dailySection.replaceChildren();
 
@@ -529,7 +643,10 @@ async function loadWeather(place) {
     renderToday(place, currentResult.value);
     showBackground(currentResult.value);
     if (forecastResult.status === "fulfilled") {
-      renderForecast(forecastResult.value, currentResult.value.time);
+      const forecastShown = renderForecast(forecastResult.value, currentResult.value.time);
+      if (forecastShown) {
+        renderAssistant(place, currentResult.value, forecastResult.value);
+      }
     } else {
       renderForecastError(); // the current card is still useful, so keep it
     }
@@ -572,7 +689,9 @@ async function handleSearch(event) {
   searchButton.disabled = true;
   // Remove old results so they do not look like the answer to this search
   cityChoicesSection.replaceChildren();
+  stopSpeaking();
   todaySection.replaceChildren();
+  assistantSection.replaceChildren();
   hourlySection.replaceChildren();
   dailySection.replaceChildren();
 

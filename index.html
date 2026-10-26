@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="background.css">
   <script src="background.js" defer></script>
+  <script src="insights.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -29,6 +30,9 @@
 
     <!-- The weather card is built by app.js after a search -->
     <section id="today" aria-label="Сейчас"></section>
+
+    <!-- Assistant: advice built by insights.js, drawn by app.js -->
+    <section id="assistant" aria-label="Помощник"></section>
 
     <!-- Next hours: filled in a later step -->
     <section id="hourly" aria-label="Ближайшие часы"></section>

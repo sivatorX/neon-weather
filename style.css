@@ -290,3 +290,53 @@ section {
   background: var(--accent);
   border-radius: 3px;
 }
+
+/* Assistant panel: a card like the others, one row per piece of advice */
+.assistant-card {
+  padding: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.assistant-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.assistant-row:first-child {
+  border-top: none;
+}
+
+.assistant-icon {
+  flex: 0 0 auto;
+  font-size: 22px;
+  line-height: 1.3;
+}
+
+/* Long advice wraps instead of pushing the page sideways */
+.assistant-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.speak-button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent-text);
+  background: var(--accent);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.speak-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
