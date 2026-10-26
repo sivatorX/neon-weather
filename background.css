@@ -3,7 +3,7 @@
 /* Sky colors are variables, so each scene only changes two values.
    Light scheme: pale skies (dark text stays readable). Dark scheme: deep skies (light text stays readable). */
 .weather-bg {
-  --sky-top: var(--bg);
+  --sky-top: var(--bg-top);
   --sky-bottom: var(--bg);
   position: fixed;
   inset: 0;

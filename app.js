@@ -12,6 +12,27 @@ const dailySection = document.getElementById("daily");
 const locateButton = document.getElementById("locate-button");
 const favouritesSection = document.getElementById("favourites");
 
+const headerDate = document.getElementById("header-date");
+
+// Write a date like "понедельник, 26 октября" under the title.
+// dateText is the city's local date ("2026-10-26..."); without it we use the browser date.
+function showHeaderDate(dateText) {
+  let date = new Date();
+  if (typeof dateText === "string") {
+    // The time part makes the date local, not UTC
+    const cityDate = new Date(`${dateText.slice(0, 10)}T00:00`);
+    if (!Number.isNaN(cityDate.getTime())) {
+      date = cityDate;
+    }
+  }
+  headerDate.textContent = date.toLocaleDateString("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
+showHeaderDate(null);
+
 // Favourite cities live here while the page is open (storage.js saves them)
 let favourites = loadFavourites();
 // True while something loads: then all buttons must stay disabled
@@ -297,6 +318,7 @@ function renderToday(place, current) {
   }
 
   todaySection.replaceChildren(card);
+  showHeaderDate(current.time); // the date of the city, not of the phone
 }
 
 const FORECAST_ERROR_MESSAGE = "Не удалось загрузить прогноз";
@@ -440,12 +462,21 @@ function createIcon(className, weatherCode, isDay) {
   return icon;
 }
 
+// A glass card with a title and some content (used by the hourly and 7-day lists)
+function createPanel(title, content) {
+  const panel = document.createElement("div");
+  panel.className = "panel";
+  panel.append(createElement("h2", "section-title", title), content);
+  return panel;
+}
+
 function renderHourly(items) {
   const row = document.createElement("div");
   row.className = "hourly-row";
   items.forEach((item, index) => {
     const card = document.createElement("div");
-    card.className = "hour-card";
+    // The first card is "now": CSS highlights it
+    card.className = index === 0 ? "hour-card is-now" : "hour-card";
     card.append(
       createElement("div", "hour-time", index === 0 ? "Сейчас" : item.clock),
       createIcon("hour-icon", item.weatherCode, item.isDay),
@@ -457,7 +488,7 @@ function renderHourly(items) {
     }
     row.append(card);
   });
-  hourlySection.replaceChildren(createElement("h2", "section-title", "Ближайшие 24 часа"), row);
+  hourlySection.replaceChildren(createPanel("Ближайшие 24 часа", row));
 }
 
 function renderDaily(items) {
@@ -477,7 +508,15 @@ function renderDaily(items) {
     const fill = document.createElement("div");
     fill.className = "range-fill";
     fill.style.left = `${((item.min - weekMin) / span) * 100}%`;
-    fill.style.width = `${((item.max - item.min) / span) * 100}%`;
+    const fillWidth = ((item.max - item.min) / span) * 100;
+    fill.style.width = `${fillWidth}%`;
+    // The colors belong to the whole week bar: stretch the gradient to the week
+    // size and shift it, so this day shows its own slice (cool left, warm right)
+    if (fillWidth > 0 && fillWidth < 100) {
+      const fillLeft = ((item.min - weekMin) / span) * 100;
+      fill.style.backgroundSize = `${10000 / fillWidth}% 100%`;
+      fill.style.backgroundPosition = `${(fillLeft / (100 - fillWidth)) * 100}% 0`;
+    }
     bar.append(fill);
 
     const rainText = item.rain !== null && item.rain > 0 ? `💧 ${Math.round(item.rain)}%` : "";
@@ -491,7 +530,7 @@ function renderDaily(items) {
     );
     list.append(row);
   }
-  dailySection.replaceChildren(createElement("h2", "section-title", "Прогноз на 7 дней"), list);
+  dailySection.replaceChildren(createPanel("Прогноз на 7 дней", list));
 }
 
 // Small friendly message inside the forecast sections
@@ -631,6 +670,7 @@ async function loadWeather(place) {
   setStatus("Загружаю погоду…");
   setBusy(true);
   clearResults(); // the choice is made, so the city list is hidden too
+  todaySection.classList.add("is-loading"); // pulsing placeholder (CSS)
 
   try {
     // Both requests run at the same time; allSettled lets one fail alone
@@ -661,6 +701,7 @@ async function loadWeather(place) {
     hideBackground();
   } finally {
     // Runs after success and after error, so the buttons never stay locked
+    todaySection.classList.remove("is-loading");
     setBusy(false);
   }
 }
@@ -731,6 +772,7 @@ function clearResults() {
   cityChoicesSection.replaceChildren();
   stopSpeaking();
   todaySection.replaceChildren();
+  showHeaderDate(null); // no city on the screen: back to the phone's date
   assistantSection.replaceChildren();
   hourlySection.replaceChildren();
   dailySection.replaceChildren();

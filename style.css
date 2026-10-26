@@ -1,25 +1,69 @@
-/* Colors live in variables, so dark mode only has to change them here */
+/* Colors, radii, shadows and spacing live in variables.
+   Dark mode only has to change the color ones. */
 :root {
   /* Tells the browser to draw scrollbars and form controls in light or dark style */
   color-scheme: light dark;
+
+  /* Page colors */
   --bg: #eef4fb;
-  --card: #ffffff;
+  --bg-top: #d9e8f7;
   --text: #1b2733;
-  --muted: #526373;
+  --muted: #4b5d6e;          /* small gray text INSIDE cards */
+  --subtle: #34475a;         /* text that sits directly on the sky (no card behind) */
   --accent: #1a63d6;
   --accent-text: #ffffff;
+  --link: #1553b3;           /* accent color for small text: darker, so it is easy to read */
   --border: #cdd9e5;
+
+  /* Glass: a see-through card. The blurred sky shows through softly. */
+  --card: #ffffff;                          /* solid color, used when blur is not supported */
+  --glass-bg: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --tile: rgba(255, 255, 255, 0.55);        /* small tiles inside a glass card */
+  --tile-border: rgba(27, 39, 51, 0.08);
+  --field-bg: rgba(255, 255, 255, 0.85);
+  --track: rgba(27, 39, 51, 0.1);           /* empty part of a temperature bar */
+  --accent-soft: rgba(26, 99, 214, 0.14);   /* light tint of the accent color */
+  --now-bg: rgba(26, 99, 214, 0.14);
+
+  /* Shape and depth */
+  --radius-card: 24px;
+  --radius-tile: 16px;
+  --radius-control: 14px;
+  --shadow: 0 8px 24px rgba(20, 40, 70, 0.12), 0 1px 3px rgba(20, 40, 70, 0.08);
+  --shadow-button: 0 4px 12px rgba(26, 99, 214, 0.3);
+
+  /* Spacing scale: everything is a multiple of 8 (or half of it) */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #11181f;
-    --card: #1c2630;
+    --bg-top: #1b2735;
     --text: #e8eef4;
-    --muted: #93a4b3;
+    --muted: #aebdca;
+    --subtle: #c9d5df;
     --accent: #4d94ff;
     --accent-text: #0b1118;
+    --link: #9cc4ff;
     --border: #34424f;
+
+    --card: #1c2630;
+    --glass-bg: rgba(18, 26, 36, 0.58);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --tile: rgba(255, 255, 255, 0.07);
+    --tile-border: rgba(255, 255, 255, 0.08);
+    --field-bg: rgba(10, 16, 24, 0.55);
+    --track: rgba(255, 255, 255, 0.14);
+    --accent-soft: rgba(77, 148, 255, 0.2);
+    --now-bg: rgba(77, 148, 255, 0.22);
+
+    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-button: 0 4px 12px rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -29,7 +73,9 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100vh;
+  background: linear-gradient(to bottom, var(--bg-top), var(--bg));
+  background-attachment: fixed;
   color: var(--text);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   line-height: 1.4;
@@ -39,24 +85,69 @@ body {
 .page {
   max-width: 480px;
   margin: 0 auto;
-  padding: 16px;
+  padding: var(--space-2);
+  padding-bottom: var(--space-4);
 }
 
+/* ---------- Header ---------- */
+
 h1 {
-  margin: 8px 0 16px;
-  font-size: 28px;
+  margin: var(--space-1) 0 0;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
+
+.header-date {
+  margin: 4px 0 var(--space-3);
+  font-size: 15px;
+  color: var(--subtle);
+}
+
+/* ---------- Glass: shared look of all cards ---------- */
+/* One list of selectors = one place to tune the glass */
+.card,
+.assistant-card,
+.panel,
+.locate-button,
+.fav-chip,
+.city-choices button,
+#today.is-loading {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow);
+  /* blur() softens whatever is behind; saturate() keeps the colors lively */
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Old browsers cannot blur: use a solid card, so the text is always easy to read */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card,
+  .assistant-card,
+  .panel,
+  .locate-button,
+  .fav-chip,
+  .city-choices button,
+  #today.is-loading {
+    background: var(--card);
+    border-color: var(--border);
+  }
+}
+
+/* ---------- Search ---------- */
 
 .search-form {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
 }
 
 .search-form label {
   width: 100%;
   font-size: 14px;
-  color: var(--muted);
+  color: var(--subtle);
 }
 
 /* min-width: 0 lets the input shrink, so the page never scrolls sideways */
@@ -64,281 +155,84 @@ h1 {
   flex: 1;
   min-width: 0;
   min-height: 48px;
-  padding: 0 12px;
+  padding: 0 var(--space-2);
   font-size: 16px;
   color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: var(--field-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.search-form button {
+.search-form input:hover {
+  border-color: var(--accent);
+}
+
+/* ---------- Buttons: same feel everywhere (hover, press, focus) ---------- */
+
+.search-form button,
+.speak-button {
   min-height: 48px;
-  padding: 0 20px;
+  padding: 0 var(--space-3);
   font-size: 16px;
   font-weight: 600;
   color: var(--accent-text);
   background: var(--accent);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-button);
   cursor: pointer;
+  transition: transform 0.15s, filter 0.2s;
+}
+
+.search-form button:hover,
+.speak-button:hover {
+  filter: brightness(1.1);
+}
+
+.locate-button,
+.fav-chip,
+.city-choices button,
+.fav-toggle {
+  transition: transform 0.15s, filter 0.2s, background-color 0.2s;
+}
+
+/* A small "press" so the button feels alive */
+.search-form button:active,
+.speak-button:active,
+.locate-button:active,
+.city-choices button:active,
+.fav-chip:active,
+.fav-toggle:active {
+  transform: scale(0.97);
+}
+
+.locate-button:hover,
+.city-choices button:hover,
+.fav-chip:hover {
+  filter: brightness(1.06);
 }
 
 /* A clear ring shows where the keyboard focus is (also visible in dark mode) */
 .search-form input:focus-visible,
-.search-form button:focus-visible {
+.search-form button:focus-visible,
+.city-choices button:focus-visible,
+.speak-button:focus-visible,
+.locate-button:focus-visible,
+.fav-chip button:focus-visible,
+.fav-toggle:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
-/* The button is disabled while the weather is loading */
-.search-form button:disabled {
+/* The buttons are disabled while the weather is loading */
+.search-form button:disabled,
+.city-choices button:disabled,
+.locate-button:disabled,
+.fav-chip button:disabled {
   opacity: 0.6;
   cursor: wait;
-}
-
-#status {
-  margin: 16px 0;
-  color: var(--muted);
-}
-
-section {
-  margin-bottom: 16px;
-}
-
-/* List of cities with the same name: one tappable button per city */
-.city-choices {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.city-choices button {
-  min-height: 44px;
-  padding: 8px 12px;
-  font-size: 16px;
-  text-align: left;
-  color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  cursor: pointer;
-  /* Long names wrap instead of pushing the page sideways */
-  overflow-wrap: anywhere;
-}
-
-.city-choices button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
-
-.city-choices button:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.card {
-  padding: 24px 16px;
-  text-align: center;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.card-city {
-  margin: 0;
-  font-size: 20px;
-  /* Very long city names wrap instead of pushing the page sideways */
-  overflow-wrap: anywhere;
-}
-
-.card-icon {
-  font-size: 64px;
-  line-height: 1.2;
-}
-
-.card-temp {
-  font-size: 56px;
-  font-weight: 700;
-}
-
-.card-text {
-  color: var(--muted);
-}
-
-.card-details {
-  margin-top: 8px;
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* Temperature of each weather model: small chips that wrap on narrow screens */
-.model-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.model-chip {
-  padding: 4px 10px;
-  font-size: 13px;
-  color: var(--text);
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-}
-
-.section-title {
-  margin: 0 0 8px;
-  font-size: 18px;
-}
-
-.forecast-error {
-  margin: 0;
-  color: var(--muted);
-}
-
-.rain {
-  font-size: 13px;
-  color: var(--accent);
-}
-
-/* The row scrolls inside itself, so the page never scrolls sideways */
-.hourly-row {
-  display: flex;
-  gap: 8px;
-  padding-bottom: 8px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-}
-
-.hour-card {
-  flex: 0 0 64px;
-  padding: 10px 4px;
-  text-align: center;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  scroll-snap-align: start;
-}
-
-.hour-time {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.hour-icon {
-  font-size: 28px;
-  line-height: 1.4;
-}
-
-.hour-temp {
-  font-weight: 600;
-}
-
-.daily-list {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-/* One row per day: name, icon, rain, temperatures; the bar takes a full line below */
-.day-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 32px 56px auto;
-  align-items: center;
-  column-gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--border);
-}
-
-.day-row:first-child {
-  border-top: none;
-}
-
-.day-icon {
-  font-size: 24px;
-  text-align: center;
-}
-
-.day-rain {
-  text-align: right;
-}
-
-.day-temps {
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.range-bar {
-  grid-column: 1 / -1;
-  position: relative;
-  height: 6px;
-  margin-top: 8px;
-  background: var(--bg);
-  border-radius: 3px;
-}
-
-.range-fill {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  min-width: 6px;
-  background: var(--accent);
-  border-radius: 3px;
-}
-
-/* Assistant panel: a card like the others, one row per piece of advice */
-.assistant-card {
-  padding: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-}
-
-.assistant-row {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 8px 0;
-  border-top: 1px solid var(--border);
-}
-
-.assistant-row:first-child {
-  border-top: none;
-}
-
-.assistant-icon {
-  flex: 0 0 auto;
-  font-size: 22px;
-  line-height: 1.3;
-}
-
-/* Long advice wraps instead of pushing the page sideways */
-.assistant-text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.speak-button {
-  width: 100%;
-  min-height: 44px;
-  margin-top: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--accent-text);
-  background: var(--accent);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-}
-
-.speak-button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
 }
 
 /* "My location" button: full width, quieter than the main "Найти" button */
@@ -346,13 +240,11 @@ section {
   display: block;
   width: 100%;
   min-height: 48px;
-  margin-top: 8px;
+  margin-top: var(--space-1);
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -361,24 +253,47 @@ section {
   display: none;
 }
 
-.locate-button:focus-visible,
-.fav-chip button:focus-visible,
-.fav-toggle:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+#status {
+  margin: var(--space-2) 0;
+  color: var(--subtle);
 }
 
-.locate-button:disabled,
-.fav-chip button:disabled {
-  opacity: 0.6;
-  cursor: wait;
+/* An empty status line should not leave a gap */
+#status:empty {
+  display: none;
 }
+
+section {
+  margin-bottom: var(--space-2);
+}
+
+/* List of cities with the same name: one tappable button per city */
+.city-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.city-choices button {
+  min-height: 48px;
+  padding: var(--space-1) var(--space-2);
+  font-size: 16px;
+  text-align: left;
+  color: var(--text);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  /* Long names wrap instead of pushing the page sideways */
+  overflow-wrap: anywhere;
+}
+
+/* ---------- Favourites ---------- */
 
 /* Favourite chips wrap onto new lines on narrow screens */
 .favourites {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-1);
   margin-top: 12px;
 }
 
@@ -390,8 +305,6 @@ section {
 .fav-chip {
   display: flex;
   max-width: 100%;
-  background: var(--card);
-  border: 1px solid var(--border);
   border-radius: 999px;
   overflow: hidden;
 }
@@ -407,7 +320,7 @@ section {
 
 .fav-open {
   min-width: 0;
-  padding: 0 8px 0 14px;
+  padding: 0 var(--space-1) 0 var(--space-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -419,25 +332,345 @@ section {
   font-size: 18px;
 }
 
-/* The star sits in the corner of the weather card */
+/* ---------- Today card ---------- */
+
 .card {
   position: relative;
+  padding: var(--space-3) var(--space-2);
+  text-align: center;
+  border-radius: var(--radius-card);
 }
 
 .card-city {
+  margin: 0;
   padding: 0 44px; /* keeps a long name away from the star */
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  /* Very long city names wrap instead of pushing the page sideways */
+  overflow-wrap: anywhere;
 }
 
+.card-icon {
+  margin-top: var(--space-1);
+  font-size: 64px;
+  line-height: 1.2;
+}
+
+/* Huge and thin: the temperature is the hero of the page */
+.card-temp {
+  font-size: 96px;
+  font-weight: 200;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.card-text {
+  margin-top: var(--space-1);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.card-details {
+  margin-top: var(--space-1);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* Temperature of each weather model: small pills that wrap on narrow screens */
+.model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: var(--space-1);
+}
+
+.model-chip {
+  padding: 4px 12px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--tile);
+  border: 1px solid var(--tile-border);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The star sits in the corner of the weather card */
 .fav-toggle {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: var(--space-1);
+  right: var(--space-1);
   width: 44px;
   height: 44px;
   font-size: 26px;
   line-height: 1;
-  color: var(--accent);
+  color: var(--link);
   background: none;
   border: none;
+  border-radius: 50%;
   cursor: pointer;
+}
+
+.fav-toggle:hover {
+  background: var(--accent-soft);
+}
+
+/* ---------- Panels (hourly and 7-day) ---------- */
+
+.panel {
+  padding: var(--space-2);
+  border-radius: var(--radius-card);
+}
+
+.section-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.forecast-error {
+  margin: 0;
+  padding: var(--space-2);
+  color: var(--subtle);
+}
+
+.rain {
+  white-space: nowrap;
+  font-size: 13px;
+  color: var(--link);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The row scrolls inside itself, so the page never scrolls sideways.
+   The negative margin + padding lets cards slide under the panel edge nicely. */
+.hourly-row {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0 calc(var(--space-2) * -1);
+  padding: 4px var(--space-2) var(--space-1);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-left: var(--space-2);
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Thin scrollbar on desktop */
+  scrollbar-width: thin;
+  scrollbar-color: var(--track) transparent;
+}
+
+/* On touch screens the swipe is obvious, so the scrollbar can go away */
+@media (hover: none) {
+  .hourly-row {
+    scrollbar-width: none;
+  }
+
+  .hourly-row::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.hour-card {
+  flex: 0 0 68px;
+  padding: 12px 4px;
+  text-align: center;
+  background: var(--tile);
+  border: 1px solid var(--tile-border);
+  border-radius: var(--radius-tile);
+  scroll-snap-align: start;
+}
+
+/* "Сейчас" stands out with the accent color */
+.hour-card.is-now {
+  background: var(--now-bg);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.hour-time {
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.is-now .hour-time {
+  font-weight: 700;
+  color: var(--link);
+}
+
+.hour-icon {
+  font-size: 28px;
+  line-height: 1.5;
+}
+
+.hour-temp {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 7-day list ---------- */
+
+/* One row per day: name, icon, rain, temperatures; the bar takes a full line below */
+.day-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 56px 88px;
+  align-items: center;
+  column-gap: var(--space-1);
+  margin: 0 -8px;
+  padding: 12px var(--space-1);
+  border-top: 1px solid var(--tile-border);
+  border-radius: 12px;
+}
+
+.day-row:first-child {
+  border-top: none;
+}
+
+/* Today is a little brighter than the other days */
+.day-row:first-child {
+  background: var(--now-bg);
+}
+
+.day-row:first-child .day-name {
+  font-weight: 700;
+}
+
+.day-icon {
+  font-size: 24px;
+  text-align: center;
+}
+
+.day-rain {
+  text-align: right;
+}
+
+.day-temps {
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The track is the whole week; the fill shows the range of this day.
+   The fill shows a slice of the same cool-to-warm gradient (app.js sets its size and place). */
+.range-bar {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 8px;
+  margin-top: 10px;
+  background: var(--track);
+  border-radius: 4px;
+}
+
+.range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 8px;
+  background-image: linear-gradient(to right, #4aa3ff, #7fd6c2 30%, #ffd84a 60%, #ff9a3c 85%, #ff6a3c);
+  background-repeat: no-repeat;
+  border-radius: 4px;
+}
+
+/* ---------- Assistant ---------- */
+
+.assistant-card {
+  padding: var(--space-2);
+  border-radius: var(--radius-card);
+}
+
+.assistant-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: var(--space-1);
+  padding: 10px 12px;
+  background: var(--tile);
+  border: 1px solid var(--tile-border);
+  border-radius: var(--radius-tile);
+}
+
+/* The emoji sits in a round tinted circle */
+.assistant-icon {
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  background: var(--accent-soft);
+  border-radius: 50%;
+}
+
+/* Long advice wraps instead of pushing the page sideways */
+.assistant-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.speak-button {
+  width: 100%;
+  margin-top: var(--space-1);
+}
+
+/* ---------- Loading: a pulsing placeholder where the card will appear ---------- */
+
+#today.is-loading {
+  min-height: 320px;
+  border-radius: var(--radius-card);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* ---------- Entrance: cards fade in and slide up, one after another ---------- */
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#today .card,
+#assistant .assistant-card,
+#hourly .panel,
+#daily .panel {
+  /* "both" keeps the card hidden during its delay */
+  animation: rise 0.3s ease-out both;
+}
+
+#assistant .assistant-card { animation-delay: 0.08s; }
+#hourly .panel { animation-delay: 0.16s; }
+#daily .panel { animation-delay: 0.24s; }
+
+/* People who dislike motion get a calm page without animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  #today.is-loading {
+    opacity: 0.8;
+  }
+}
+
+/* Very narrow phones (320px): a little less padding and a smaller hero number */
+@media (max-width: 340px) {
+  .card-temp {
+    font-size: 80px;
+  }
+
+  .day-row {
+    grid-template-columns: minmax(0, 1fr) 28px 48px 80px;
+  }
 }
