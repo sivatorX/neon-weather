@@ -170,3 +170,21 @@ section {
   font-size: 14px;
   color: var(--muted);
 }
+
+/* Temperature of each weather model: small chips that wrap on narrow screens */
+.model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.model-chip {
+  padding: 4px 10px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}

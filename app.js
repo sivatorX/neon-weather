@@ -118,32 +118,106 @@ async function searchCities(name) {
   return places;
 }
 
-// Get the current weather for a place.
-async function fetchForecast(place) {
+// Weather models we ask. They often disagree, so we show all of them.
+const MODELS = [
+  { id: "ecmwf_ifs025", label: "Европа (ECMWF)" },
+  { id: "icon_seamless", label: "Германия (ICON)" },
+  { id: "gfs_seamless", label: "США (GFS)" },
+];
+
+// Get the current weather of ONE model.
+// Why one request per model: with several models in one request, the API
+// gives "current" only for the first model (only "hourly" has all of them).
+async function fetchModelCurrent(place, modelId) {
   // The real height of the city lets Open-Meteo correct the temperature
   const elevationPart = place.elevation === null ? "" : `&elevation=${place.elevation}`;
   const url =
     `${FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
     "&current=temperature_2m,apparent_temperature,weather_code," +
     "wind_speed_10m,relative_humidity_2m,is_day" +
-    "&timezone=auto&wind_speed_unit=ms" +
+    `&models=${modelId}&timezone=auto&wind_speed_unit=ms` +
     elevationPart;
   const data = await fetchJson(url);
 
-  const current = data && data.current;
+  if (!data || !data.current || typeof data.current !== "object") {
+    throw new Error("Сервис погоды вернул неполные данные. Попробуйте позже.");
+  }
+  return data.current;
+}
+
+// Average of the numbers in a list. Returns null for an empty list.
+function averageOf(numbers) {
+  if (numbers.length === 0) {
+    return null;
+  }
+  const sum = numbers.reduce((total, number) => total + number, 0);
+  return sum / numbers.length;
+}
+
+// Take the field from the first model that has a real number for it.
+// Returns null if no model has it.
+function firstNumber(currents, field) {
+  for (const current of currents) {
+    if (isNumber(current[field])) {
+      return current[field];
+    }
+  }
+  return null;
+}
+
+// Get the current weather for a place from all models and combine it.
+async function fetchForecast(place) {
+  // allSettled waits for all requests; one failed model does not stop the rest
+  const settled = await Promise.allSettled(
+    MODELS.map((model) => fetchModelCurrent(place, model.id))
+  );
+
+  // Keep MODELS order, so "first model" rules are always the same
+  const answers = [];
+  settled.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      answers.push({ model: MODELS[index], current: result.value });
+    }
+  });
+  if (answers.length === 0) {
+    // Every model failed: show the reason of the first one
+    throw settled[0].reason;
+  }
+
+  // Only models with a real temperature go into the average
+  const modelTemps = answers
+    .filter((answer) => isNumber(answer.current.temperature_2m))
+    .map((answer) => ({ label: answer.model.label, value: answer.current.temperature_2m }));
+  const currents = answers.map((answer) => answer.current);
+
+  const combined = {
+    temperature: averageOf(modelTemps.map((item) => item.value)),
+    apparentTemperature: averageOf(
+      currents.map((c) => c.apparent_temperature).filter(isNumber)
+    ),
+    modelTemps: modelTemps,
+    weatherCode: firstNumber(currents, "weather_code"),
+    windSpeed: firstNumber(currents, "wind_speed_10m"),
+    humidity: firstNumber(currents, "relative_humidity_2m"),
+    isDay: firstNumber(currents, "is_day"),
+    time: null,
+  };
+  const withTime = currents.find((c) => typeof c.time === "string");
+  if (withTime) {
+    combined.time = withTime.time;
+  }
+
   if (
-    !current ||
-    !isNumber(current.temperature_2m) ||
-    !isNumber(current.apparent_temperature) ||
-    !isNumber(current.weather_code) ||
-    !isNumber(current.wind_speed_10m) ||
-    !isNumber(current.relative_humidity_2m) ||
-    !isNumber(current.is_day)
+    combined.temperature === null ||
+    combined.apparentTemperature === null ||
+    combined.weatherCode === null ||
+    combined.windSpeed === null ||
+    combined.humidity === null ||
+    combined.isDay === null
   ) {
     throw new Error("Сервис погоды вернул неполные данные. Попробуйте позже.");
   }
-
-  return current;
+  return combined;
 }
 
 // Make a <div> with a class and text. textContent is safe: it never runs HTML.
@@ -154,10 +228,35 @@ function createElement(tag, className, text) {
   return element;
 }
 
+// The block under the description: average info, chips per model, spread
+function createModelsBlock(modelTemps) {
+  const block = document.createElement("div");
+  block.className = "models";
+
+  const count = modelTemps.length;
+  const countText = count === 1 ? "по 1 модели" : `по ${count} моделям`;
+  block.append(createElement("div", "card-details", `Среднее ${countText}`));
+
+  const chips = document.createElement("div");
+  chips.className = "model-chips";
+  for (const item of modelTemps) {
+    chips.append(createElement("span", "model-chip", `${item.label} ${Math.round(item.value)}°`));
+  }
+  block.append(chips);
+
+  // A spread needs at least two models to compare
+  if (count >= 2) {
+    const values = modelTemps.map((item) => item.value);
+    const spread = Math.round(Math.max(...values) - Math.min(...values));
+    block.append(createElement("div", "card-details", `Разброс: ${spread}°`));
+  }
+  return block;
+}
+
 function renderToday(place, current) {
-  const info = getWeatherInfo(current.weather_code, current.is_day);
+  const info = getWeatherInfo(current.weatherCode, current.isDay);
   const title = place.country ? `${place.name}, ${place.country}` : place.name;
-  const wind = Math.round(current.wind_speed_10m * 10) / 10;
+  const wind = Math.round(current.windSpeed * 10) / 10;
 
   const card = document.createElement("div");
   card.className = "card";
@@ -168,13 +267,14 @@ function renderToday(place, current) {
   card.append(
     createElement("h2", "card-city", title),
     icon,
-    createElement("div", "card-temp", `${Math.round(current.temperature_2m)}°`),
+    createElement("div", "card-temp", `${Math.round(current.temperature)}°`),
     createElement("div", "card-text", info.text),
+    createModelsBlock(current.modelTemps),
     createElement(
       "div",
       "card-details",
-      `Ощущается как ${Math.round(current.apparent_temperature)}° · ` +
-        `Ветер ${wind} м/с · Влажность ${Math.round(current.relative_humidity_2m)}%`
+      `Ощущается как ${Math.round(current.apparentTemperature)}° · ` +
+        `Ветер ${wind} м/с · Влажность ${Math.round(current.humidity)}%`
     )
   );
 
