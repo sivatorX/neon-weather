@@ -9,6 +9,13 @@ const todaySection = document.getElementById("today");
 const assistantSection = document.getElementById("assistant");
 const hourlySection = document.getElementById("hourly");
 const dailySection = document.getElementById("daily");
+const locateButton = document.getElementById("locate-button");
+const favouritesSection = document.getElementById("favourites");
+
+// Favourite cities live here while the page is open (storage.js saves them)
+let favourites = loadFavourites();
+// True while something loads: then all buttons must stay disabled
+let isBusy = false;
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
@@ -268,6 +275,7 @@ function renderToday(place, current) {
   icon.setAttribute("aria-hidden", "true"); // the text below says the same
 
   card.append(
+    createFavouriteToggle(place),
     createElement("h2", "card-city", title),
     icon,
     createElement("div", "card-temp", `${Math.round(current.temperature)}°`),
@@ -621,13 +629,8 @@ function renderCityChoices(places) {
 async function loadWeather(place) {
   // Loading state
   setStatus("Загружаю погоду…");
-  searchButton.disabled = true;
-  cityChoicesSection.replaceChildren(); // the choice is made, hide the list
-  stopSpeaking();
-  todaySection.replaceChildren();
-  assistantSection.replaceChildren();
-  hourlySection.replaceChildren();
-  dailySection.replaceChildren();
+  setBusy(true);
+  clearResults(); // the choice is made, so the city list is hidden too
 
   try {
     // Both requests run at the same time; allSettled lets one fail alone
@@ -641,6 +644,7 @@ async function loadWeather(place) {
 
     // Success state
     renderToday(place, currentResult.value);
+    saveLastPlace(place); // only a place that really loaded is worth remembering
     showBackground(currentResult.value);
     if (forecastResult.status === "fulfilled") {
       const forecastShown = renderForecast(forecastResult.value, currentResult.value.time);
@@ -656,8 +660,8 @@ async function loadWeather(place) {
     setStatus(error.message);
     hideBackground();
   } finally {
-    // Runs after success and after error, so the button never stays locked
-    searchButton.disabled = false;
+    // Runs after success and after error, so the buttons never stay locked
+    setBusy(false);
   }
 }
 
@@ -686,14 +690,9 @@ async function handleSearch(event) {
 
   // Loading state
   setStatus("Ищу город…");
-  searchButton.disabled = true;
+  setBusy(true);
   // Remove old results so they do not look like the answer to this search
-  cityChoicesSection.replaceChildren();
-  stopSpeaking();
-  todaySection.replaceChildren();
-  assistantSection.replaceChildren();
-  hourlySection.replaceChildren();
-  dailySection.replaceChildren();
+  clearResults();
 
   try {
     const places = await searchCities(name);
@@ -709,9 +708,218 @@ async function handleSearch(event) {
     setStatus(error.message);
     hideBackground();
   } finally {
-    // Runs after success and after error, so the button never stays locked
-    searchButton.disabled = false;
+    // Runs after success and after error, so the buttons never stay locked
+    setBusy(false);
   }
 }
 
+// ---------- Busy state and clearing ----------
+
+// Lock or unlock every button that starts a new load
+function setBusy(busy) {
+  isBusy = busy;
+  searchButton.disabled = busy;
+  locateButton.disabled = busy;
+  for (const button of favouritesSection.querySelectorAll("button")) {
+    button.disabled = busy;
+  }
+}
+
+// Remove the old answer before a new one is loaded
+function clearResults() {
+  updateCardStar = null; // the card is going away
+  cityChoicesSection.replaceChildren();
+  stopSpeaking();
+  todaySection.replaceChildren();
+  assistantSection.replaceChildren();
+  hourlySection.replaceChildren();
+  dailySection.replaceChildren();
+}
+
+// ---------- Favourites ----------
+
+function isFavourite(place) {
+  return favourites.some((saved) => isSamePlace(saved, place));
+}
+
+function toggleFavourite(place) {
+  if (isFavourite(place)) {
+    favourites = favourites.filter((saved) => !isSamePlace(saved, place));
+  } else {
+    // Newest first; slice drops the oldest when there are more than the maximum
+    favourites = [place, ...favourites].slice(0, MAX_FAVOURITES);
+  }
+  saveFavourites(favourites);
+  renderFavourites();
+  if (updateCardStar !== null) {
+    updateCardStar();
+  }
+}
+
+// Redraws the star of the card that is on the screen (null = no card)
+let updateCardStar = null;
+
+// The star on the weather card. aria-pressed tells screen readers if it is on.
+function createFavouriteToggle(place) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "fav-toggle";
+
+  const update = () => {
+    const active = isFavourite(place);
+    button.textContent = active ? "★" : "☆";
+    button.setAttribute("aria-pressed", String(active));
+    button.setAttribute(
+      "aria-label",
+      active ? "Убрать из избранного" : "Добавить в избранное"
+    );
+  };
+  update();
+  updateCardStar = update;
+
+  button.addEventListener("click", () => toggleFavourite(place));
+  return button;
+}
+
+function renderFavourites() {
+  const chips = favourites.map((place) => {
+    const chip = document.createElement("div");
+    chip.className = "fav-chip";
+
+    // Saved places already have coordinates: no geocoding needed
+    const openButton = createElement("button", "fav-open", `★ ${place.name}`);
+    openButton.type = "button";
+    openButton.addEventListener("click", () => loadWeather(place));
+
+    const removeButton = createElement("button", "fav-remove", "×");
+    removeButton.type = "button";
+    removeButton.setAttribute("aria-label", `Удалить ${place.name} из избранного`);
+    removeButton.addEventListener("click", () => removeFavourite(place));
+
+    openButton.disabled = isBusy;
+    removeButton.disabled = isBusy;
+    chip.append(openButton, removeButton);
+    return chip;
+  });
+  // An empty row is hidden by CSS (:empty)
+  favouritesSection.replaceChildren(...chips);
+}
+
+function removeFavourite(place) {
+  favourites = favourites.filter((saved) => !isSamePlace(saved, place));
+  saveFavourites(favourites);
+  renderFavourites();
+  // If this city is on the card, its star must turn empty again
+  if (updateCardStar !== null) {
+    updateCardStar();
+  }
+}
+
+// ---------- "My location" ----------
+
+const GEOLOCATION_OPTIONS = {
+  enableHighAccuracy: false, // a rough position is enough and is faster
+  timeout: 10000,
+  maximumAge: 600000, // a position from the last 10 minutes is fine
+};
+
+const UNNAMED_PLACE = "Моё местоположение";
+const REVERSE_GEOCODING_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+
+// getCurrentPosition uses callbacks (old style). A Promise wrapper lets us use await.
+function getPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, GEOLOCATION_OPTIONS);
+  });
+}
+
+// error.code: 1 = user said no, 2 = no position, 3 = too slow
+function describeGeolocationError(error) {
+  if (error && error.code === 1) {
+    return "Доступ к местоположению запрещён. Разрешите его в настройках браузера или введите город.";
+  }
+  if (error && error.code === 3) {
+    return "Не удалось определить местоположение вовремя. Попробуйте ещё раз или введите город.";
+  }
+  return "Не удалось определить местоположение. Попробуйте ещё раз или введите город.";
+}
+
+// Open-Meteo cannot turn coordinates into a name, so we ask another free service.
+// This never throws: without a name we still show the weather.
+async function lookupPlaceName(latitude, longitude) {
+  const fallback = { name: UNNAMED_PLACE, country: "" };
+  try {
+    const url =
+      `${REVERSE_GEOCODING_URL}?latitude=${latitude}&longitude=${longitude}&localityLanguage=ru`;
+    const data = await fetchJson(url);
+    if (!data || typeof data !== "object") {
+      return fallback;
+    }
+    // Take the first name that is a non-empty string
+    const names = [data.city, data.locality, data.principalSubdivision];
+    const name = names.find((value) => typeof value === "string" && value.trim() !== "");
+    if (!name) {
+      return fallback;
+    }
+    return {
+      name: name,
+      country: typeof data.countryName === "string" ? data.countryName : "",
+    };
+  } catch (error) {
+    return fallback;
+  }
+}
+
+async function handleLocate() {
+  setStatus("Определяю ваше местоположение…");
+  setBusy(true);
+  clearResults();
+
+  let place;
+  try {
+    const position = await getPosition();
+    const latitude = position && position.coords ? position.coords.latitude : null;
+    const longitude = position && position.coords ? position.coords.longitude : null;
+    if (!isNumber(latitude) || !isNumber(longitude)) {
+      throw new Error("bad position");
+    }
+    // 3 decimals is about 100 m: enough for weather, and we do not store more
+    const roundedLatitude = Math.round(latitude * 1000) / 1000;
+    const roundedLongitude = Math.round(longitude * 1000) / 1000;
+    const found = await lookupPlaceName(roundedLatitude, roundedLongitude);
+    place = {
+      name: found.name,
+      country: found.country,
+      region: "",
+      latitude: roundedLatitude,
+      longitude: roundedLongitude,
+      elevation: null, // unknown: Open-Meteo uses its own terrain data
+    };
+  } catch (error) {
+    // Error state
+    setStatus(describeGeolocationError(error));
+    hideBackground();
+    setBusy(false);
+    return;
+  }
+  await loadWeather(place); // it unlocks the buttons itself
+}
+
+// ---------- Start ----------
+
 searchForm.addEventListener("submit", handleSearch);
+
+if ("geolocation" in navigator) {
+  locateButton.addEventListener("click", handleLocate);
+} else {
+  locateButton.hidden = true; // this browser cannot do it
+}
+
+renderFavourites();
+
+// Open the last city again. We do NOT ask for the location here:
+// a permission popup right at the start would surprise the user.
+const lastPlace = loadLastPlace();
+if (lastPlace !== null) {
+  loadWeather(lastPlace);
+}

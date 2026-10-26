@@ -340,3 +340,104 @@ section {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* "My location" button: full width, quieter than the main "Найти" button */
+.locate-button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-top: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* display: block above would beat the "hidden" attribute, so we say it again */
+.locate-button[hidden] {
+  display: none;
+}
+
+.locate-button:focus-visible,
+.fav-chip button:focus-visible,
+.fav-toggle:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.locate-button:disabled,
+.fav-chip button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Favourite chips wrap onto new lines on narrow screens */
+.favourites {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.favourites:empty {
+  display: none;
+}
+
+/* One chip = the city button + a small "x" button, drawn as one pill */
+.fav-chip {
+  display: flex;
+  max-width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fav-chip button {
+  min-height: 44px;
+  font-size: 15px;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.fav-open {
+  min-width: 0;
+  padding: 0 8px 0 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fav-remove {
+  min-width: 44px;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+/* The star sits in the corner of the weather card */
+.card {
+  position: relative;
+}
+
+.card-city {
+  padding: 0 44px; /* keeps a long name away from the star */
+}
+
+.fav-toggle {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
