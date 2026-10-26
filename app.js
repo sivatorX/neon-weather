@@ -1,4 +1,4 @@
-// Weather app, step 2: search a city and show the current weather.
+// Weather app, step 3: current weather, next 24 hours and 7-day forecast.
 
 const searchForm = document.getElementById("search-form");
 const cityInput = document.getElementById("city-input");
@@ -6,6 +6,8 @@ const searchButton = searchForm.querySelector("button");
 const statusElement = document.getElementById("status");
 const cityChoicesSection = document.getElementById("city-choices");
 const todaySection = document.getElementById("today");
+const hourlySection = document.getElementById("hourly");
+const dailySection = document.getElementById("daily");
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
@@ -288,6 +290,204 @@ function renderToday(place, current) {
   todaySection.replaceChildren(card);
 }
 
+const FORECAST_ERROR_MESSAGE = "Не удалось загрузить прогноз";
+
+// Names for the day list. getDay() gives 0 for Sunday.
+const WEEKDAYS = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
+const MONTHS = [
+  "янв", "фев", "мар", "апр", "май", "июн",
+  "июл", "авг", "сен", "окт", "ноя", "дек",
+];
+
+// Get hourly + daily data of ALL models in one request.
+// Here the field names have the model in the end, like temperature_2m_icon_seamless.
+async function fetchHourlyDaily(place) {
+  const elevationPart = place.elevation === null ? "" : `&elevation=${place.elevation}`;
+  const url =
+    `${FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
+    "&hourly=temperature_2m,weather_code,precipitation_probability,is_day" +
+    "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
+    `&models=${MODELS.map((model) => model.id).join(",")}` +
+    `&forecast_days=7&timezone=auto${elevationPart}`;
+  const data = await fetchJson(url);
+
+  if (!data || !data.hourly || !data.daily) {
+    throw new Error(FORECAST_ERROR_MESSAGE);
+  }
+  return data;
+}
+
+// Read one value (for example the temperature at hour 5) from all models.
+// section is data.hourly or data.daily. A model with a bad array is skipped.
+function valuesAt(section, field, index) {
+  const values = [];
+  for (const model of MODELS) {
+    const list = section[`${field}_${model.id}`];
+    if (Array.isArray(list) && list.length === section.time.length && isNumber(list[index])) {
+      values.push(list[index]);
+    }
+  }
+  return values;
+}
+
+// Temperatures: average of the models. Others: the first model that has a number.
+function averageAt(section, field, index) {
+  return averageOf(valuesAt(section, field, index));
+}
+
+function firstAt(section, field, index) {
+  const values = valuesAt(section, field, index);
+  return values.length > 0 ? values[0] : null;
+}
+
+// Turn the API answer into a simple list of the next 24 hours.
+function buildHourlyItems(hourly, currentTime) {
+  if (!Array.isArray(hourly.time)) {
+    return [];
+  }
+  // Both are local times of the city like "2026-10-26T15:45".
+  // Cutting to "2026-10-26T15" lets us compare them as plain text.
+  const startHour = typeof currentTime === "string" ? currentTime.slice(0, 13) : "";
+
+  const items = [];
+  for (let index = 0; index < hourly.time.length && items.length < 24; index++) {
+    const time = hourly.time[index];
+    if (typeof time !== "string" || time.slice(0, 13) < startHour) {
+      continue;
+    }
+    const temperature = averageAt(hourly, "temperature_2m", index);
+    const weatherCode = firstAt(hourly, "weather_code", index);
+    if (temperature === null || weatherCode === null) {
+      continue; // skip a broken hour
+    }
+    items.push({
+      clock: time.slice(11, 16),
+      temperature: temperature,
+      weatherCode: weatherCode,
+      isDay: firstAt(hourly, "is_day", index),
+      rain: firstAt(hourly, "precipitation_probability", index),
+    });
+  }
+  return items;
+}
+
+// Turn the API answer into a simple list of days.
+function buildDailyItems(daily) {
+  if (!Array.isArray(daily.time)) {
+    return [];
+  }
+  const items = [];
+  daily.time.forEach((date, index) => {
+    const min = averageAt(daily, "temperature_2m_min", index);
+    const max = averageAt(daily, "temperature_2m_max", index);
+    const weatherCode = firstAt(daily, "weather_code", index);
+    if (typeof date !== "string" || min === null || max === null || weatherCode === null) {
+      return; // skip a broken day
+    }
+    items.push({
+      date: date,
+      dayNumber: index, // 0 = today, 1 = tomorrow
+      min: min,
+      max: max,
+      weatherCode: weatherCode,
+      rain: firstAt(daily, "precipitation_probability_max", index),
+    });
+  });
+  return items;
+}
+
+// "Чт, 29 окт" from "2026-10-29". The time part makes the date local, not UTC.
+function formatDayName(item) {
+  if (item.dayNumber === 0) {
+    return "Сегодня";
+  }
+  if (item.dayNumber === 1) {
+    return "Завтра";
+  }
+  const day = new Date(`${item.date}T00:00`);
+  if (Number.isNaN(day.getTime())) {
+    return item.date;
+  }
+  return `${WEEKDAYS[day.getDay()]}, ${day.getDate()} ${MONTHS[day.getMonth()]}`;
+}
+
+function createIcon(className, weatherCode, isDay) {
+  const icon = createElement("div", className, getWeatherInfo(weatherCode, isDay).icon);
+  icon.setAttribute("aria-hidden", "true"); // decoration only
+  return icon;
+}
+
+function renderHourly(items) {
+  const row = document.createElement("div");
+  row.className = "hourly-row";
+  items.forEach((item, index) => {
+    const card = document.createElement("div");
+    card.className = "hour-card";
+    card.append(
+      createElement("div", "hour-time", index === 0 ? "Сейчас" : item.clock),
+      createIcon("hour-icon", item.weatherCode, item.isDay),
+      createElement("div", "hour-temp", `${Math.round(item.temperature)}°`)
+    );
+    // Show rain only when there is a chance of it
+    if (item.rain !== null && item.rain > 0) {
+      card.append(createElement("div", "rain", `💧 ${Math.round(item.rain)}%`));
+    }
+    row.append(card);
+  });
+  hourlySection.replaceChildren(createElement("h2", "section-title", "Ближайшие 24 часа"), row);
+}
+
+function renderDaily(items) {
+  // The bars are scaled to the coldest and the warmest value of the week
+  const weekMin = Math.min(...items.map((item) => item.min));
+  const weekMax = Math.max(...items.map((item) => item.max));
+  const span = Math.max(weekMax - weekMin, 1); // never divide by zero
+
+  const list = document.createElement("div");
+  list.className = "daily-list";
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "day-row";
+
+    const bar = document.createElement("div");
+    bar.className = "range-bar";
+    const fill = document.createElement("div");
+    fill.className = "range-fill";
+    fill.style.left = `${((item.min - weekMin) / span) * 100}%`;
+    fill.style.width = `${((item.max - item.min) / span) * 100}%`;
+    bar.append(fill);
+
+    const rainText = item.rain !== null && item.rain > 0 ? `💧 ${Math.round(item.rain)}%` : "";
+
+    row.append(
+      createElement("div", "day-name", formatDayName(item)),
+      createIcon("day-icon", item.weatherCode, 1),
+      createElement("div", "rain day-rain", rainText),
+      createElement("div", "day-temps", `${Math.round(item.min)}° / ${Math.round(item.max)}°`),
+      bar
+    );
+    list.append(row);
+  }
+  dailySection.replaceChildren(createElement("h2", "section-title", "Прогноз на 7 дней"), list);
+}
+
+// Small friendly message inside the forecast sections
+function renderForecastError() {
+  hourlySection.replaceChildren(createElement("p", "forecast-error", FORECAST_ERROR_MESSAGE));
+  dailySection.replaceChildren();
+}
+
+function renderForecast(data, currentTime) {
+  const hourlyItems = buildHourlyItems(data.hourly, currentTime);
+  const dailyItems = buildDailyItems(data.daily);
+  if (hourlyItems.length === 0 || dailyItems.length === 0) {
+    renderForecastError();
+    return;
+  }
+  renderHourly(hourlyItems);
+  renderDaily(dailyItems);
+}
+
 // "Париж — Франция, Иль-де-Франс": only the parts that exist
 function describePlace(place) {
   const details = [place.country, place.region].filter((part) => part !== "");
@@ -312,11 +512,26 @@ async function loadWeather(place) {
   searchButton.disabled = true;
   cityChoicesSection.replaceChildren(); // the choice is made, hide the list
   todaySection.replaceChildren();
+  hourlySection.replaceChildren();
+  dailySection.replaceChildren();
 
   try {
-    const current = await fetchForecast(place);
+    // Both requests run at the same time; allSettled lets one fail alone
+    const [currentResult, forecastResult] = await Promise.allSettled([
+      fetchForecast(place),
+      fetchHourlyDaily(place),
+    ]);
+    if (currentResult.status === "rejected") {
+      throw currentResult.reason; // no current weather: this is a real error
+    }
+
     // Success state
-    renderToday(place, current);
+    renderToday(place, currentResult.value);
+    if (forecastResult.status === "fulfilled") {
+      renderForecast(forecastResult.value, currentResult.value.time);
+    } else {
+      renderForecastError(); // the current card is still useful, so keep it
+    }
     setStatus("");
   } catch (error) {
     // Error state
@@ -342,6 +557,8 @@ async function handleSearch(event) {
   // Remove old results so they do not look like the answer to this search
   cityChoicesSection.replaceChildren();
   todaySection.replaceChildren();
+  hourlySection.replaceChildren();
+  dailySection.replaceChildren();
 
   try {
     const places = await searchCities(name);

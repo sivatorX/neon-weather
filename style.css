@@ -1,5 +1,7 @@
 /* Colors live in variables, so dark mode only has to change them here */
 :root {
+  /* Tells the browser to draw scrollbars and form controls in light or dark style */
+  color-scheme: light dark;
   --bg: #eef4fb;
   --card: #ffffff;
   --text: #1b2733;
@@ -187,4 +189,104 @@ section {
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 999px;
+}
+
+.section-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.forecast-error {
+  margin: 0;
+  color: var(--muted);
+}
+
+.rain {
+  font-size: 13px;
+  color: var(--accent);
+}
+
+/* The row scrolls inside itself, so the page never scrolls sideways */
+.hourly-row {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+.hour-card {
+  flex: 0 0 64px;
+  padding: 10px 4px;
+  text-align: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  scroll-snap-align: start;
+}
+
+.hour-time {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hour-icon {
+  font-size: 28px;
+  line-height: 1.4;
+}
+
+.hour-temp {
+  font-weight: 600;
+}
+
+.daily-list {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+/* One row per day: name, icon, rain, temperatures; the bar takes a full line below */
+.day-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 56px auto;
+  align-items: center;
+  column-gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.day-row:first-child {
+  border-top: none;
+}
+
+.day-icon {
+  font-size: 24px;
+  text-align: center;
+}
+
+.day-rain {
+  text-align: right;
+}
+
+.day-temps {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.range-bar {
+  grid-column: 1 / -1;
+  position: relative;
+  height: 6px;
+  margin-top: 8px;
+  background: var(--bg);
+  border-radius: 3px;
+}
+
+.range-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  background: var(--accent);
+  border-radius: 3px;
 }
