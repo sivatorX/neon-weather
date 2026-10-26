@@ -1,10 +1,10 @@
-/* Live weather background. background.js builds the .weather-bg element and its particles. */
+/* Live weather background, neon style. background.js builds the .weather-bg element and its particles.
+   The neon theme is always dark, so there is no light/dark switch here. */
 
-/* Sky colors are variables, so each scene only changes two values.
-   Light scheme: pale skies (dark text stays readable). Dark scheme: deep skies (light text stays readable). */
+/* Sky colors are variables, so each scene only changes two values */
 .weather-bg {
   --sky-top: var(--bg-top);
-  --sky-bottom: var(--bg);
+  --sky-bottom: #1a2552;
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -13,24 +13,30 @@
   background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
 }
 
-/* ---------- Sky colors per scene ---------- */
-.weather-bg--clear.weather-bg--day { --sky-top: #bfe0ff; --sky-bottom: #ffe9c4; }
-.weather-bg--clear.weather-bg--night { --sky-top: #a9b6e6; --sky-bottom: #cfd3ee; }
-.weather-bg--cloudy { --sky-top: #cfd8e2; --sky-bottom: #e6ebf0; }
-.weather-bg--cloudy.weather-bg--night { --sky-top: #aab4c4; --sky-bottom: #c6cdd8; }
-.weather-bg--rain { --sky-top: #a9b8c8; --sky-bottom: #cdd6df; }
-.weather-bg--snow { --sky-top: #d3dfec; --sky-bottom: #eef3f8; }
-.weather-bg--storm { --sky-top: #8f9bab; --sky-bottom: #b3bcc8; }
-
-@media (prefers-color-scheme: dark) {
-  .weather-bg--clear.weather-bg--day { --sky-top: #1f4f86; --sky-bottom: #4a5f80; }
-  .weather-bg--clear.weather-bg--night { --sky-top: #070d1f; --sky-bottom: #172a52; }
-  .weather-bg--cloudy { --sky-top: #28323d; --sky-bottom: #3b4653; }
-  .weather-bg--cloudy.weather-bg--night { --sky-top: #131a22; --sky-bottom: #222c37; }
-  .weather-bg--rain { --sky-top: #1c2630; --sky-bottom: #2f3d4a; }
-  .weather-bg--snow { --sky-top: #2a3644; --sky-bottom: #46566a; }
-  .weather-bg--storm { --sky-top: #0e141b; --sky-bottom: #232e3a; }
+/* Retro horizon: a faint neon grid on the ground. It is two sets of thin lines
+   that fade out upwards, so it costs almost nothing. The color follows the weather accent. */
+.weather-bg::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 30%;
+  background:
+    linear-gradient(rgba(var(--neon-rgb), 0.35) 1px, transparent 1px) 0 0 / 100% 28px,
+    linear-gradient(90deg, rgba(var(--neon-rgb), 0.3) 1px, transparent 1px) 0 0 / 28px 100%;
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
 }
+
+/* ---------- Sky colors per scene ---------- */
+.weather-bg--clear.weather-bg--day { --sky-top: #1a0b45; --sky-bottom: #7b1f6a; }      /* sunset purple */
+.weather-bg--clear.weather-bg--night { --sky-top: #050a18; --sky-bottom: #1b1450; }
+.weather-bg--cloudy { --sky-top: #0a1230; --sky-bottom: #222a5a; }
+.weather-bg--cloudy.weather-bg--night { --sky-top: #050a18; --sky-bottom: #141a42; }
+.weather-bg--rain { --sky-top: #050c1c; --sky-bottom: #0f3050; }
+.weather-bg--snow { --sky-top: #0c1838; --sky-bottom: #2b4575; }
+.weather-bg--storm { --sky-top: #080414; --sky-bottom: #2a1257; }
 
 /* ---------- Sun and moon ---------- */
 .bg-sun,
@@ -41,11 +47,12 @@
   border-radius: 50%;
 }
 
+/* A glowing magenta-orange orb */
 .bg-sun {
   width: 90px;
   height: 90px;
-  background: radial-gradient(circle, #fff6c9 0%, #ffd45e 60%, #ffb733 100%);
-  box-shadow: 0 0 50px 25px rgba(255, 200, 80, 0.55);
+  background: radial-gradient(circle, #fff1c2 0%, #ffb347 38%, #ff4f9a 80%, #ff2e88 100%);
+  box-shadow: 0 0 40px 14px rgba(255, 90, 150, 0.6), 0 0 110px 50px rgba(255, 138, 76, 0.35);
   animation: sun-glow 6s ease-in-out infinite alternate;
 }
 
@@ -54,7 +61,7 @@
   width: 64px;
   height: 64px;
   background: transparent;
-  box-shadow: -14px 6px 0 0 #f4f1d8, 0 0 30px 6px rgba(244, 241, 216, 0.35);
+  box-shadow: -14px 6px 0 0 #e4f6ff, -14px 6px 24px 2px rgba(58, 216, 255, 0.6);
   transform: translateX(14px);
 }
 
@@ -72,27 +79,29 @@
   height: var(--size);
   background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 5px 1px rgba(58, 216, 255, 0.9), 0 0 12px 2px rgba(180, 108, 255, 0.5);
   animation: twinkle var(--duration) ease-in-out var(--delay) infinite alternate;
 }
 
 @keyframes twinkle {
-  from { opacity: 0.2; transform: scale(0.8); }
+  from { opacity: 0.3; transform: scale(0.8); }
   to { opacity: 1; transform: scale(1.2); }
 }
 
 /* ---------- Clouds ---------- */
-/* A cloud is a soft rounded bar plus two round "puffs" */
+/* A cloud is a soft rounded bar plus two round "puffs".
+   Dark body, and drop-shadow draws a faint neon edge around the whole shape. */
 .bg-cloud {
   position: absolute;
   top: var(--y);
   left: var(--x);
   width: 140px;
   height: 40px;
-  background: #ffffff; /* solid color + opacity on the whole cloud: no seams between puffs */
+  background: #1b2556; /* solid color + opacity on the whole cloud: no seams between puffs */
   border-radius: 40px;
-  opacity: calc(var(--opacity) * 0.8);
+  opacity: calc(var(--opacity) * 0.85);
   scale: var(--scale);
+  filter: drop-shadow(0 0 4px rgba(var(--neon-rgb), 0.55));
   animation: drift var(--duration) ease-in-out var(--delay) infinite alternate;
 }
 
@@ -118,10 +127,6 @@
   top: -40px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .bg-cloud { background: #6b7a8a; opacity: calc(var(--opacity) * 0.4); }
-}
-
 /* Clouds sway slowly left and right; they never leave the screen area */
 @keyframes drift {
   from { transform: translateX(-9vw); }
@@ -135,12 +140,8 @@
   width: 120%;
   height: 22%;
   top: var(--y);
-  background: linear-gradient(to bottom, transparent, rgba(255, 255, 255, 0.5), transparent);
+  background: linear-gradient(to bottom, transparent, rgba(120, 150, 230, 0.3), transparent);
   animation: haze-move var(--duration) ease-in-out var(--delay) infinite alternate;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bg-haze { background: linear-gradient(to bottom, transparent, rgba(150, 165, 182, 0.3), transparent); }
 }
 
 @keyframes haze-move {
@@ -148,32 +149,29 @@
   to { transform: translateX(4vw); opacity: 1; }
 }
 
-/* ---------- Rain ---------- */
+/* ---------- Rain: glowing cyan lines ---------- */
 .bg-drop {
   position: absolute;
   top: 0;
   left: var(--x);
   width: 2px;
-  height: 16px;
-  background: rgba(60, 100, 150, 0.55);
+  height: 18px;
+  background: #7fe9ff;
   border-radius: 1px;
+  box-shadow: 0 0 6px 1px rgba(58, 216, 255, 0.8);
   opacity: 0;
   animation: fall var(--duration) linear var(--delay) infinite;
-}
-
-@media (prefers-color-scheme: dark) {
-  .bg-drop { background: rgba(170, 200, 235, 0.6); }
 }
 
 /* Drops move down and a bit left; the tilt matches the direction */
 @keyframes fall {
   0% { transform: translate(0, -5vh) rotate(10deg); opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
+  10% { opacity: 0.85; }
+  90% { opacity: 0.85; }
   100% { transform: translate(-18vh, 105vh) rotate(10deg); opacity: 0; }
 }
 
-/* ---------- Snow ---------- */
+/* ---------- Snow: glowing white dots ---------- */
 .bg-flake {
   position: absolute;
   top: 0;
@@ -182,7 +180,7 @@
   height: var(--size);
   background: #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 3px rgba(120, 150, 190, 0.6);
+  box-shadow: 0 0 8px 2px rgba(207, 234, 255, 0.8);
   opacity: 0;
   animation: snowfall var(--duration) linear var(--delay) infinite;
 }
@@ -195,21 +193,20 @@
   100% { transform: translate(var(--drift), 105vh); opacity: 0; }
 }
 
-/* ---------- Lightning ---------- */
+/* ---------- Lightning: a soft violet glow, never a harsh white flash ---------- */
 .bg-lightning {
   position: absolute;
   inset: 0;
-  background: #ffffff; /* solid color + opacity on the whole cloud: no seams between puffs */
+  background: radial-gradient(ellipse at 50% 20%, rgba(180, 108, 255, 0.9), rgba(120, 60, 220, 0.5) 60%, transparent);
   opacity: 0;
-  animation: flash 9s linear var(--delay) infinite;
+  animation: flash 9s ease-in-out var(--delay) infinite;
 }
 
-/* Mostly dark: two quick flashes near the start of each cycle */
+/* Mostly dark: one slow, gentle swell near the start of each cycle (max 30% light) */
 @keyframes flash {
   0%, 100% { opacity: 0; }
-  3% { opacity: 0.7; }
-  5% { opacity: 0.1; }
-  7% { opacity: 0.55; }
+  3% { opacity: 0.3; }
+  8% { opacity: 0.08; }
   12% { opacity: 0; }
 }
 

@@ -4,14 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Погода</title>
+  <!-- Neon fonts (same family as the Battleship game). If they fail to load, system fonts are used. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Saira+Stencil+One&display=swap">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="background.css">
   <script src="background.js" defer></script>
   <script src="insights.js" defer></script>
   <script src="storage.js" defer></script>
+  <script src="scroll.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
+  <!-- Slim bar with city and temperature; scroll.js shows it after the big temperature scrolls away.
+       aria-hidden: screen readers already read the same text in the weather card. -->
+  <div id="sticky-bar" class="sticky-bar" aria-hidden="true">
+    <div class="sticky-bar-inner">
+      <span id="sticky-city" class="sticky-city"></span>
+      <span id="sticky-temp" class="sticky-temp"></span>
+      <span id="sticky-icon" class="sticky-icon"></span>
+    </div>
+  </div>
+
+  <!-- Marker for the "up" button: it appears when this point is scrolled past -->
+  <div id="scroll-marker" class="scroll-marker" aria-hidden="true"></div>
+  <button id="to-top" class="to-top" type="button" aria-label="Наверх">↑</button>
+
   <main class="page">
     <header>
       <h1>Погода</h1>

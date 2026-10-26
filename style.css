@@ -1,37 +1,57 @@
-/* Colors, radii, shadows and spacing live in variables.
-   Dark mode only has to change the color ones. */
-:root {
-  /* Tells the browser to draw scrollbars and form controls in light or dark style */
-  color-scheme: light dark;
+/* NEON theme, taken from the Battleship game "neon-armada":
+   deep navy background, cyan / pink / violet glow, same fonts.
+   Colors, radii, shadows and spacing live in variables, so they are changed in one place. */
+/* ":root, body": the glow colors are built from --neon-rgb, and a scene changes --neon-rgb on <body>.
+   So the variables must be calculated again on <body> too. */
+:root,
+body {
+  /* The neon look is always dark (it is the brand), even if the phone is in light mode */
+  color-scheme: dark;
 
-  /* Page colors */
-  --bg: #eef4fb;
-  --bg-top: #d9e8f7;
-  --text: #1b2733;
-  --muted: #4b5d6e;          /* small gray text INSIDE cards */
-  --subtle: #34475a;         /* text that sits directly on the sky (no card behind) */
-  --accent: #1a63d6;
-  --accent-text: #ffffff;
-  --link: #1553b3;           /* accent color for small text: darker, so it is easy to read */
-  --border: #cdd9e5;
+  /* Fonts. Russo One has Russian letters; Saira Stencil One is only for the big digits.
+     If Google Fonts cannot load, the system fonts after the comma are used. */
+  --font-display: "Russo One", Impact, "Arial Narrow", sans-serif;
+  --font-digits: "Saira Stencil One", "Russo One", Impact, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 
-  /* Glass: a see-through card. The blurred sky shows through softly. */
-  --card: #ffffff;                          /* solid color, used when blur is not supported */
-  --glass-bg: rgba(255, 255, 255, 0.68);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --tile: rgba(255, 255, 255, 0.55);        /* small tiles inside a glass card */
-  --tile-border: rgba(27, 39, 51, 0.08);
-  --field-bg: rgba(255, 255, 255, 0.85);
-  --track: rgba(27, 39, 51, 0.1);           /* empty part of a temperature bar */
-  --accent-soft: rgba(26, 99, 214, 0.14);   /* light tint of the accent color */
-  --now-bg: rgba(26, 99, 214, 0.14);
+  /* Page colors (from Battleship) */
+  --bg: #050a18;
+  --bg-top: #0a1230;
+  --text: #e8f6ff;
+  --muted: #a9bfe6;          /* small text INSIDE panels: ~9:1 on the dark panel */
+  --subtle: #bcd0f0;         /* text that sits directly on the sky (no panel behind) */
+  --pink: #ff2e88;
+  --violet: #b46cff;
+  --warm: #ffaa3c;
+  --focus: #ffe45e;          /* yellow focus ring: clear on every neon color */
+  --border: #1c2f5e;
 
-  /* Shape and depth */
-  --radius-card: 24px;
-  --radius-tile: 16px;
-  --radius-control: 14px;
-  --shadow: 0 8px 24px rgba(20, 40, 70, 0.12), 0 1px 3px rgba(20, 40, 70, 0.08);
-  --shadow-button: 0 4px 12px rgba(26, 99, 214, 0.3);
+  /* The accent. It changes with the weather (see "Scenes" below).
+     The rgb triplet lets us make see-through versions: rgba(var(--neon-rgb), 0.3) */
+  --neon: #3ad8ff;
+  --neon-rgb: 58, 216, 255;
+  --neon-ink: #02101f;       /* dark text on a filled neon button */
+
+  /* Glass: a dark see-through panel. The blurred sky shows through softly. */
+  --card: #0b1630;                          /* solid color, used when blur is not supported */
+  --glass-bg: rgba(9, 18, 42, 0.72);
+  --glass-border: rgba(var(--neon-rgb), 0.55);
+  --tile: rgba(var(--neon-rgb), 0.07);      /* small tiles inside a panel */
+  --tile-border: rgba(var(--neon-rgb), 0.22);
+  --field-bg: rgba(5, 10, 24, 0.75);
+  --track: rgba(255, 255, 255, 0.12);       /* empty part of a temperature bar */
+  --accent-soft: rgba(var(--neon-rgb), 0.16);
+  --now-bg: rgba(var(--neon-rgb), 0.18);
+
+  /* Glow: a thin outer light + a faint inner light */
+  --glow-line: 0 0 10px rgba(var(--neon-rgb), 0.35), inset 0 0 14px rgba(var(--neon-rgb), 0.08);
+  --glow-strong: 0 0 6px rgba(var(--neon-rgb), 0.8), 0 0 22px rgba(var(--neon-rgb), 0.55), inset 0 0 16px rgba(var(--neon-rgb), 0.18);
+  --text-glow: 0 0 8px rgba(var(--neon-rgb), 0.7), 0 0 24px rgba(var(--neon-rgb), 0.4);
+
+  /* Shape */
+  --radius-card: 20px;
+  --radius-tile: 14px;
+  --radius-control: 12px;
 
   /* Spacing scale: everything is a multiple of 8 (or half of it) */
   --space-1: 8px;
@@ -40,44 +60,31 @@
   --space-4: 32px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11181f;
-    --bg-top: #1b2735;
-    --text: #e8eef4;
-    --muted: #aebdca;
-    --subtle: #c9d5df;
-    --accent: #4d94ff;
-    --accent-text: #0b1118;
-    --link: #9cc4ff;
-    --border: #34424f;
-
-    --card: #1c2630;
-    --glass-bg: rgba(18, 26, 36, 0.58);
-    --glass-border: rgba(255, 255, 255, 0.12);
-    --tile: rgba(255, 255, 255, 0.07);
-    --tile-border: rgba(255, 255, 255, 0.08);
-    --field-bg: rgba(10, 16, 24, 0.55);
-    --track: rgba(255, 255, 255, 0.14);
-    --accent-soft: rgba(77, 148, 255, 0.2);
-    --now-bg: rgba(77, 148, 255, 0.22);
-
-    --shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-button: 0 4px 12px rgba(0, 0, 0, 0.35);
-  }
-}
+/* ---------- Scenes: background.js puts data-scene on <body> ----------
+   Only the accent changes; every glow in this file uses var(--neon). */
+body[data-scene^="clear-day"] { --neon: #ff8a4c; --neon-rgb: 255, 138, 76; }   /* sun: warm orange-pink */
+body[data-scene^="snow"] { --neon: #cfeaff; --neon-rgb: 207, 234, 255; }       /* snow: ice white */
+body[data-scene^="storm"] { --neon: #b46cff; --neon-rgb: 180, 108, 255; }      /* storm: violet */
+/* rain, clouds, fog and clear night keep the default cyan */
 
 * {
   box-sizing: border-box;
 }
 
+/* In-page jumps (like the "up" button) glide instead of jumping */
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(to bottom, var(--bg-top), var(--bg));
+  background:
+    radial-gradient(900px 480px at 50% -8%, rgba(58, 216, 255, 0.16), transparent 70%),
+    linear-gradient(to bottom, var(--bg-top), var(--bg));
   background-attachment: fixed;
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.4;
 }
 
@@ -93,10 +100,14 @@ body {
 
 h1 {
   margin: var(--space-1) 0 0;
-  font-size: 32px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 1.1;
+  color: var(--neon);
+  text-shadow: var(--text-glow);
 }
 
 .header-date {
@@ -105,7 +116,7 @@ h1 {
   color: var(--subtle);
 }
 
-/* ---------- Glass: shared look of all cards ---------- */
+/* ---------- Glass: shared look of all panels ---------- */
 /* One list of selectors = one place to tune the glass */
 .card,
 .assistant-card,
@@ -116,13 +127,13 @@ h1 {
 #today.is-loading {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow);
+  box-shadow: var(--glow-line);
   /* blur() softens whatever is behind; saturate() keeps the colors lively */
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
 }
 
-/* Old browsers cannot blur: use a solid card, so the text is always easy to read */
+/* Old browsers cannot blur: use a solid panel, so the text is always easy to read */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .card,
   .assistant-card,
@@ -132,7 +143,6 @@ h1 {
   .city-choices button,
   #today.is-loading {
     background: var(--card);
-    border-color: var(--border);
   }
 }
 
@@ -147,6 +157,8 @@ h1 {
 .search-form label {
   width: 100%;
   font-size: 14px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--subtle);
 }
 
@@ -159,43 +171,59 @@ h1 {
   font-size: 16px;
   color: var(--text);
   background: var(--field-bg);
-  border: 1px solid var(--glass-border);
+  border: 1.5px solid rgba(var(--neon-rgb), 0.55);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.search-form input:hover {
-  border-color: var(--accent);
+.search-form input::placeholder {
+  color: #8da6d4; /* readable, but quieter than the typed text */
 }
 
-/* ---------- Buttons: same feel everywhere (hover, press, focus) ---------- */
+.search-form input:hover,
+.search-form input:focus {
+  border-color: var(--neon);
+  box-shadow: var(--glow-line);
+}
+
+/* ---------- Buttons: neon outline, they glow and fill on hover ---------- */
 
 .search-form button,
-.speak-button {
+.speak-button,
+.locate-button,
+.city-choices button {
   min-height: 48px;
   padding: 0 var(--space-3);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--accent-text);
-  background: var(--accent);
-  border: none;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--neon);
+  background: rgba(5, 10, 24, 0.6);
+  border: 1.5px solid var(--neon);
   border-radius: var(--radius-control);
-  box-shadow: var(--shadow-button);
+  box-shadow: var(--glow-line);
   cursor: pointer;
-  transition: transform 0.15s, filter 0.2s;
+  transition: transform 0.15s, box-shadow 0.2s, background-color 0.2s, color 0.2s;
 }
 
 .search-form button:hover,
-.speak-button:hover {
-  filter: brightness(1.1);
+.speak-button:hover,
+.locate-button:hover,
+.city-choices button:hover {
+  color: var(--neon-ink);
+  background: var(--neon);
+  box-shadow: var(--glow-strong);
 }
 
-.locate-button,
 .fav-chip,
-.city-choices button,
 .fav-toggle {
-  transition: transform 0.15s, filter 0.2s, background-color 0.2s;
+  transition: transform 0.15s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.fav-chip:hover {
+  box-shadow: var(--glow-strong);
 }
 
 /* A small "press" so the button feels alive */
@@ -204,25 +232,21 @@ h1 {
 .locate-button:active,
 .city-choices button:active,
 .fav-chip:active,
-.fav-toggle:active {
+.fav-toggle:active,
+.to-top:active {
   transform: scale(0.97);
 }
 
-.locate-button:hover,
-.city-choices button:hover,
-.fav-chip:hover {
-  filter: brightness(1.06);
-}
-
-/* A clear ring shows where the keyboard focus is (also visible in dark mode) */
+/* A bright yellow ring shows where the keyboard focus is (on top of any neon color) */
 .search-form input:focus-visible,
 .search-form button:focus-visible,
 .city-choices button:focus-visible,
 .speak-button:focus-visible,
 .locate-button:focus-visible,
 .fav-chip button:focus-visible,
-.fav-toggle:focus-visible {
-  outline: 3px solid var(--accent);
+.fav-toggle:focus-visible,
+.to-top:focus-visible {
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -231,21 +255,15 @@ h1 {
 .city-choices button:disabled,
 .locate-button:disabled,
 .fav-chip button:disabled {
-  opacity: 0.6;
+  opacity: 0.55;
   cursor: wait;
 }
 
-/* "My location" button: full width, quieter than the main "Найти" button */
+/* "My location" button: full width */
 .locate-button {
   display: block;
   width: 100%;
-  min-height: 48px;
   margin-top: var(--space-1);
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text);
-  border-radius: var(--radius-control);
-  cursor: pointer;
 }
 
 /* display: block above would beat the "hidden" attribute, so we say it again */
@@ -276,13 +294,13 @@ section {
 }
 
 .city-choices button {
-  min-height: 48px;
   padding: var(--space-1) var(--space-2);
+  font-family: var(--font-body);
   font-size: 16px;
+  letter-spacing: 0.01em;
   text-align: left;
+  text-transform: none;
   color: var(--text);
-  border-radius: var(--radius-control);
-  cursor: pointer;
   /* Long names wrap instead of pushing the page sideways */
   overflow-wrap: anywhere;
 }
@@ -339,14 +357,17 @@ section {
   padding: var(--space-3) var(--space-2);
   text-align: center;
   border-radius: var(--radius-card);
+  box-shadow: var(--glow-strong);
 }
 
 .card-city {
   margin: 0;
   padding: 0 44px; /* keeps a long name away from the star */
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   /* Very long city names wrap instead of pushing the page sideways */
   overflow-wrap: anywhere;
 }
@@ -355,22 +376,34 @@ section {
   margin-top: var(--space-1);
   font-size: 64px;
   line-height: 1.2;
+  /* A soft light behind the emoji */
+  filter: drop-shadow(0 0 14px rgba(var(--neon-rgb), 0.6));
 }
 
-/* Huge and thin: the temperature is the hero of the page */
+/* Huge and glowing: the temperature is the hero of the page.
+   The glow is only decoration; the text itself is bright white-blue on dark. */
 .card-temp {
-  font-size: 96px;
-  font-weight: 200;
-  letter-spacing: -0.05em;
+  font-family: var(--font-digits);
+  font-size: 104px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   line-height: 1;
+  color: #f2fbff;
+  text-shadow: 0 0 6px rgba(var(--neon-rgb), 0.9), 0 0 26px rgba(var(--neon-rgb), 0.7), 0 0 60px rgba(var(--neon-rgb), 0.45);
   font-variant-numeric: tabular-nums;
+}
+
+.card-deg {
+  font-family: system-ui, sans-serif;
+  font-weight: 300;
 }
 
 .card-text {
   margin-top: var(--space-1);
   font-size: 18px;
-  font-weight: 500;
-  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--neon);
 }
 
 .card-details {
@@ -379,7 +412,7 @@ section {
   color: var(--muted);
 }
 
-/* Temperature of each weather model: small pills that wrap on narrow screens */
+/* Temperature of each weather model: small neon pills that wrap on narrow screens */
 .model-chips {
   display: flex;
   flex-wrap: wrap;
@@ -407,7 +440,8 @@ section {
   height: 44px;
   font-size: 26px;
   line-height: 1;
-  color: var(--link);
+  color: var(--neon);
+  text-shadow: var(--text-glow);
   background: none;
   border: none;
   border-radius: 50%;
@@ -427,9 +461,13 @@ section {
 
 .section-title {
   margin: 0 0 12px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--neon);
+  text-shadow: 0 0 8px rgba(var(--neon-rgb), 0.5);
 }
 
 .forecast-error {
@@ -441,7 +479,7 @@ section {
 .rain {
   white-space: nowrap;
   font-size: 13px;
-  color: var(--link);
+  color: var(--neon);
   font-variant-numeric: tabular-nums;
 }
 
@@ -451,7 +489,7 @@ section {
   display: flex;
   gap: var(--space-1);
   margin: 0 calc(var(--space-2) * -1);
-  padding: 4px var(--space-2) var(--space-1);
+  padding: 8px var(--space-2) var(--space-1);
   overflow-x: auto;
   scroll-snap-type: x proximity;
   scroll-padding-left: var(--space-2);
@@ -459,7 +497,7 @@ section {
   -webkit-overflow-scrolling: touch;
   /* Thin scrollbar on desktop */
   scrollbar-width: thin;
-  scrollbar-color: var(--track) transparent;
+  scrollbar-color: rgba(var(--neon-rgb), 0.5) transparent;
 }
 
 /* On touch screens the swipe is obvious, so the scrollbar can go away */
@@ -483,11 +521,11 @@ section {
   scroll-snap-align: start;
 }
 
-/* "Сейчас" stands out with the accent color */
+/* "Сейчас" stands out: filled tint and a strong glow */
 .hour-card.is-now {
   background: var(--now-bg);
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  border-color: var(--neon);
+  box-shadow: var(--glow-strong);
 }
 
 .hour-time {
@@ -498,7 +536,7 @@ section {
 
 .is-now .hour-time {
   font-weight: 700;
-  color: var(--link);
+  color: var(--neon);
 }
 
 .hour-icon {
@@ -529,13 +567,16 @@ section {
   border-top: none;
 }
 
-/* Today is a little brighter than the other days */
+/* Today glows: a tinted row with its own neon outline */
 .day-row:first-child {
   background: var(--now-bg);
+  border: 1px solid var(--neon);
+  box-shadow: var(--glow-strong);
 }
 
 .day-row:first-child .day-name {
   font-weight: 700;
+  color: var(--neon);
 }
 
 .day-icon {
@@ -555,7 +596,7 @@ section {
 }
 
 /* The track is the whole week; the fill shows the range of this day.
-   The fill shows a slice of the same cool-to-warm gradient (app.js sets its size and place). */
+   The fill shows a slice of the same cyan-to-pink gradient (app.js sets its size and place). */
 .range-bar {
   grid-column: 1 / -1;
   position: relative;
@@ -570,9 +611,10 @@ section {
   top: 0;
   bottom: 0;
   min-width: 8px;
-  background-image: linear-gradient(to right, #4aa3ff, #7fd6c2 30%, #ffd84a 60%, #ff9a3c 85%, #ff6a3c);
+  background-image: linear-gradient(to right, #3ad8ff, #b46cff 55%, #ff2e88);
   background-repeat: no-repeat;
   border-radius: 4px;
+  box-shadow: 0 0 8px rgba(58, 216, 255, 0.7), 0 0 14px rgba(255, 46, 136, 0.4);
 }
 
 /* ---------- Assistant ---------- */
@@ -582,18 +624,20 @@ section {
   border-radius: var(--radius-card);
 }
 
+/* Each advice is a neon pill */
 .assistant-row {
   display: flex;
   gap: 12px;
   align-items: center;
   margin-bottom: var(--space-1);
-  padding: 10px 12px;
+  padding: 8px 16px 8px 8px;
   background: var(--tile);
   border: 1px solid var(--tile-border);
-  border-radius: var(--radius-tile);
+  border-radius: 999px;
 }
 
-/* The emoji sits in a round tinted circle */
+/* The emoji sits in a round circle with its own glow.
+   Every row gets another color, so the list looks lively. */
 .assistant-icon {
   flex: 0 0 40px;
   display: grid;
@@ -602,8 +646,22 @@ section {
   height: 40px;
   font-size: 20px;
   line-height: 1;
-  background: var(--accent-soft);
+  background: rgba(var(--neon-rgb), 0.16);
+  border: 1.5px solid var(--neon);
   border-radius: 50%;
+  box-shadow: 0 0 10px rgba(var(--neon-rgb), 0.6);
+}
+
+.assistant-row:nth-child(3n + 2) .assistant-icon {
+  background: rgba(255, 46, 136, 0.16);
+  border-color: var(--pink);
+  box-shadow: 0 0 10px rgba(255, 46, 136, 0.6);
+}
+
+.assistant-row:nth-child(3n) .assistant-icon {
+  background: rgba(180, 108, 255, 0.16);
+  border-color: var(--violet);
+  box-shadow: 0 0 10px rgba(180, 108, 255, 0.6);
 }
 
 /* Long advice wraps instead of pushing the page sideways */
@@ -622,35 +680,164 @@ section {
 #today.is-loading {
   min-height: 320px;
   border-radius: var(--radius-card);
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: pulse 1.6s ease-in-out infinite;
 }
 
+/* Slow and gentle (0.55 to 1), never a flash */
 @keyframes pulse {
-  0%, 100% { opacity: 0.5; }
+  0%, 100% { opacity: 0.55; }
   50% { opacity: 1; }
 }
 
-/* ---------- Entrance: cards fade in and slide up, one after another ---------- */
+/* ---------- Entrance of the weather card ---------- */
 
 @keyframes rise {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-#today .card,
-#assistant .assistant-card,
-#hourly .panel,
-#daily .panel {
-  /* "both" keeps the card hidden during its delay */
+#today .card {
   animation: rise 0.3s ease-out both;
 }
 
-#assistant .assistant-card { animation-delay: 0.08s; }
-#hourly .panel { animation-delay: 0.16s; }
-#daily .panel { animation-delay: 0.24s; }
+/* ---------- Scroll reveal ----------
+   scroll.js adds "reveal" to the blocks and "is-visible" when they enter the screen.
+   Things are hidden ONLY when html has "js-reveal" (JS works and supports the observer),
+   so without JS everything stays visible. */
+.js-reveal .reveal:not(.is-visible) {
+  opacity: 0;
+}
+
+.js-reveal .reveal.is-visible {
+  animation: reveal-panel 0.6s ease-out both;
+}
+
+.js-reveal .day-row.reveal.is-visible {
+  animation-name: reveal-row;
+  /* --i is the row number, so the days appear one after another */
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* Slides up and flashes a brighter edge once; the end state is the normal style */
+@keyframes reveal-panel {
+  from { opacity: 0; transform: translateY(24px); box-shadow: 0 0 30px rgba(var(--neon-rgb), 0.6); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes reveal-row {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Sticky mini header (appears after the big temperature scrolls away) ---------- */
+
+.sticky-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  padding: env(safe-area-inset-top, 0px) 16px 0;
+  background: rgba(5, 10, 24, 0.86);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-bottom: 1.5px solid var(--neon);
+  box-shadow: 0 4px 18px rgba(var(--neon-rgb), 0.35);
+  /* Hidden above the screen; visibility keeps it out of reading order when hidden */
+  transform: translateY(-110%);
+  visibility: hidden;
+  transition: transform 0.25s ease-out, visibility 0s linear 0.25s;
+}
+
+.sticky-bar.is-shown {
+  transform: translateY(0);
+  visibility: visible;
+  transition: transform 0.25s ease-out;
+}
+
+/* Same width as the page column, so the text lines up with the cards */
+.sticky-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 480px;
+  min-height: 44px;
+  margin: 0 auto;
+  font-family: var(--font-display);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sticky-city {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+}
+
+.sticky-temp {
+  font-size: 18px;
+  color: var(--neon);
+  text-shadow: var(--text-glow);
+  white-space: nowrap;
+}
+
+.sticky-icon {
+  font-size: 20px;
+}
+
+/* ---------- "Up" button ---------- */
+
+.to-top {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 10;
+  width: 48px;
+  height: 48px;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--neon);
+  background: rgba(5, 10, 24, 0.85);
+  border: 1.5px solid var(--neon);
+  border-radius: 50%;
+  box-shadow: var(--glow-line);
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s, visibility 0s linear 0.25s, transform 0.15s, background-color 0.2s;
+}
+
+.to-top.is-shown {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.25s, transform 0.15s, background-color 0.2s;
+}
+
+.to-top:hover {
+  color: var(--neon-ink);
+  background: var(--neon);
+  box-shadow: var(--glow-strong);
+}
+
+/* Invisible marker 800px from the top; when it leaves the screen the button appears */
+.scroll-marker {
+  position: absolute;
+  top: 800px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
 
 /* People who dislike motion get a calm page without animations */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
   *,
   *::before,
   *::after {
@@ -666,8 +853,12 @@ section {
 
 /* Very narrow phones (320px): a little less padding and a smaller hero number */
 @media (max-width: 340px) {
+  h1 {
+    font-size: 28px;
+  }
+
   .card-temp {
-    font-size: 80px;
+    font-size: 84px;
   }
 
   .day-row {

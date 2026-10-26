@@ -284,6 +284,14 @@ function createModelsBlock(modelTemps) {
   return block;
 }
 
+// The stencil digit font draws "°" like a small zero,
+// so the degree sign gets its own span with a normal font.
+function createTemperature(value) {
+  const temperature = createElement("div", "card-temp", String(Math.round(value)));
+  temperature.append(createElement("span", "card-deg", "°"));
+  return temperature;
+}
+
 function renderToday(place, current) {
   const info = getWeatherInfo(current.weatherCode, current.isDay);
   const title = place.country ? `${place.name}, ${place.country}` : place.name;
@@ -299,7 +307,7 @@ function renderToday(place, current) {
     createFavouriteToggle(place),
     createElement("h2", "card-city", title),
     icon,
-    createElement("div", "card-temp", `${Math.round(current.temperature)}°`),
+    createTemperature(current.temperature),
     createElement("div", "card-text", info.text),
     createModelsBlock(current.modelTemps),
     createElement(
@@ -319,6 +327,10 @@ function renderToday(place, current) {
 
   todaySection.replaceChildren(card);
   showHeaderDate(current.time); // the date of the city, not of the phone
+  // The slim bar at the top shows the same city, temperature and icon (scroll.js)
+  if (typeof updateStickyBar === "function") {
+    updateStickyBar(place.name, `${Math.round(current.temperature)}°`, info.icon);
+  }
 }
 
 const FORECAST_ERROR_MESSAGE = "Не удалось загрузить прогноз";
@@ -695,10 +707,14 @@ async function loadWeather(place) {
       renderForecastError(); // the current card is still useful, so keep it
     }
     setStatus("");
+    if (typeof refreshScrollEffects === "function") {
+      refreshScrollEffects(); // new panels fade in when they enter the screen
+    }
   } catch (error) {
     // Error state
     setStatus(error.message);
     hideBackground();
+    if (typeof hideStickyBar === "function") hideStickyBar();
   } finally {
     // Runs after success and after error, so the buttons never stay locked
     todaySection.classList.remove("is-loading");

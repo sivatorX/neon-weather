@@ -150,10 +150,13 @@ function setWeatherBackground(weatherCode, isDay) {
   container.replaceChildren();
   container.className = "weather-bg weather-bg--" + sceneName + " weather-bg--" + dayOrNight;
   buildScene(container, sceneName, Boolean(isDay));
+  // style.css reads data-scene to pick the neon accent color of the whole page
+  document.body.dataset.scene = sceneName + "-" + dayOrNight;
   currentSceneKey = sceneKey;
 }
 
 function clearWeatherBackground() {
+  delete document.body.dataset.scene; // back to the default cyan accent
   if (!backgroundElement) return; // nothing was ever shown
   backgroundElement.replaceChildren();
   backgroundElement.className = "weather-bg";
