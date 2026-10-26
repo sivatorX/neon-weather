@@ -4,6 +4,7 @@ const searchForm = document.getElementById("search-form");
 const cityInput = document.getElementById("city-input");
 const searchButton = searchForm.querySelector("button");
 const statusElement = document.getElementById("status");
+const cityChoicesSection = document.getElementById("city-choices");
 const todaySection = document.getElementById("today");
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
@@ -82,40 +83,51 @@ async function fetchJson(url) {
   }
 }
 
-// Find the first city that matches the name.
-async function searchCity(name) {
+// Find all cities that match the name (up to 5). Bad results are skipped.
+async function searchCities(name) {
   const url = `${GEOCODING_URL}?name=${encodeURIComponent(name)}&count=5&language=ru`;
   const data = await fetchJson(url);
 
   // When nothing is found, the API has no "results" field at all
-  if (!data || !Array.isArray(data.results) || data.results.length === 0) {
+  const results = data && Array.isArray(data.results) ? data.results : [];
+
+  const places = [];
+  for (const item of results) {
+    if (
+      !item ||
+      typeof item.name !== "string" ||
+      !isNumber(item.latitude) ||
+      !isNumber(item.longitude)
+    ) {
+      continue; // skip a broken result, maybe the others are fine
+    }
+    places.push({
+      name: item.name,
+      country: typeof item.country === "string" ? item.country : "",
+      region: typeof item.admin1 === "string" ? item.admin1 : "",
+      latitude: item.latitude,
+      longitude: item.longitude,
+      // null means "unknown": then we do not send elevation at all
+      elevation: isNumber(item.elevation) ? item.elevation : null,
+    });
+  }
+
+  if (places.length === 0) {
     throw new Error("Город не найден. Проверьте название и попробуйте ещё раз.");
   }
-
-  const place = data.results[0];
-  if (
-    typeof place.name !== "string" ||
-    !isNumber(place.latitude) ||
-    !isNumber(place.longitude)
-  ) {
-    throw new Error("Не удалось разобрать ответ поиска города.");
-  }
-
-  return {
-    name: place.name,
-    country: typeof place.country === "string" ? place.country : "",
-    latitude: place.latitude,
-    longitude: place.longitude,
-  };
+  return places;
 }
 
-// Get the current weather for a point on the map.
-async function fetchForecast(latitude, longitude) {
+// Get the current weather for a place.
+async function fetchForecast(place) {
+  // The real height of the city lets Open-Meteo correct the temperature
+  const elevationPart = place.elevation === null ? "" : `&elevation=${place.elevation}`;
   const url =
-    `${FORECAST_URL}?latitude=${latitude}&longitude=${longitude}` +
+    `${FORECAST_URL}?latitude=${place.latitude}&longitude=${place.longitude}` +
     "&current=temperature_2m,apparent_temperature,weather_code," +
     "wind_speed_10m,relative_humidity_2m,is_day" +
-    "&timezone=auto&wind_speed_unit=ms";
+    "&timezone=auto&wind_speed_unit=ms" +
+    elevationPart;
   const data = await fetchJson(url);
 
   const current = data && data.current;
@@ -166,7 +178,53 @@ function renderToday(place, current) {
     )
   );
 
+  // "time" looks like "2026-10-26T15:45". It is local time of the city.
+  // Skip the line if the API did not send a proper string.
+  if (typeof current.time === "string" && current.time.includes("T")) {
+    const clock = current.time.split("T")[1].slice(0, 5);
+    card.append(createElement("div", "card-details", `Данные на ${clock} (местное время)`));
+  }
+
   todaySection.replaceChildren(card);
+}
+
+// "Париж — Франция, Иль-де-Франс": only the parts that exist
+function describePlace(place) {
+  const details = [place.country, place.region].filter((part) => part !== "");
+  return details.length > 0 ? `${place.name} — ${details.join(", ")}` : place.name;
+}
+
+// Show one button per city, so the user picks the right one
+function renderCityChoices(places) {
+  const buttons = places.map((place) => {
+    const button = createElement("button", "", describePlace(place));
+    button.type = "button";
+    button.addEventListener("click", () => loadWeather(place));
+    return button;
+  });
+  cityChoicesSection.replaceChildren(...buttons);
+}
+
+// Load and show the weather for one chosen place.
+async function loadWeather(place) {
+  // Loading state
+  setStatus("Загружаю погоду…");
+  searchButton.disabled = true;
+  cityChoicesSection.replaceChildren(); // the choice is made, hide the list
+  todaySection.replaceChildren();
+
+  try {
+    const current = await fetchForecast(place);
+    // Success state
+    renderToday(place, current);
+    setStatus("");
+  } catch (error) {
+    // Error state
+    setStatus(error.message);
+  } finally {
+    // Runs after success and after error, so the button never stays locked
+    searchButton.disabled = false;
+  }
 }
 
 async function handleSearch(event) {
@@ -179,18 +237,23 @@ async function handleSearch(event) {
   }
 
   // Loading state
-  setStatus("Загружаю погоду…");
+  setStatus("Ищу город…");
   searchButton.disabled = true;
+  // Remove old results so they do not look like the answer to this search
+  cityChoicesSection.replaceChildren();
+  todaySection.replaceChildren();
 
   try {
-    const place = await searchCity(name);
-    const current = await fetchForecast(place.latitude, place.longitude);
-    // Success state
-    renderToday(place, current);
-    setStatus("");
+    const places = await searchCities(name);
+    if (places.length === 1) {
+      await loadWeather(places[0]);
+    } else {
+      // Do not guess: wait until the user picks the right city
+      renderCityChoices(places);
+      setStatus("Найдено несколько городов. Выберите нужный:");
+    }
   } catch (error) {
-    // Error state: remove the old card so it does not look like the answer
-    todaySection.replaceChildren();
+    // Error state
     setStatus(error.message);
   } finally {
     // Runs after success and after error, so the button never stays locked

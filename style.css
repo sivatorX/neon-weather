@@ -104,6 +104,38 @@ section {
   margin-bottom: 16px;
 }
 
+/* List of cities with the same name: one tappable button per city */
+.city-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.city-choices button {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 16px;
+  text-align: left;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  /* Long names wrap instead of pushing the page sideways */
+  overflow-wrap: anywhere;
+}
+
+.city-choices button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.city-choices button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .card {
   padding: 24px 16px;
   text-align: center;
