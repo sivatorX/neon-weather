@@ -22,6 +22,15 @@ New skills for this project: `fetch`, `async/await`, JSON, loading states, error
   - Forecast: `https://api.open-meteo.com/v1/forecast?latitude=..&longitude=..&current=...&hourly=...&daily=...&timezone=auto`
   - City search (geocoding): `https://geocoding-api.open-meteo.com/v1/search?name=<city>&count=5&language=ru`
   - Weather codes (WMO `weather_code`) must be mapped to an icon and a text.
+- **Roadmap** (one step = one commit):
+  1. ✅ Page layout (static).
+  2. ✅ Real data: city search + current weather; split into `style.css` and `app.js`.
+  3. Next hours + 7-day forecast.
+  4. Live background: changes with weather and day/night (sun, rain drops, snow, stars).
+  5. "What to wear" advice: umbrella, jacket, sunglasses, from the next hours' data.
+  6. "My location" button + favourite cities (`localStorage`).
+  7. 24-hour temperature chart, sunrise/sunset, air quality (`https://air-quality-api.open-meteo.com/v1/air-quality`, no key).
+  8. Publish on GitHub Pages.
 - Optional later: "use my location" (`navigator.geolocation`), °C/°F switch, saved favourite cities (`localStorage`), a temperature chart.
 - Never put secret API keys in this repo. A service that needs a key needs a small server; that is a level 3 topic.
 
