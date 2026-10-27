@@ -330,13 +330,26 @@ function speakDegrees(shownValue, unitCode) {
   return `${sign}${Math.abs(rounded)} ${degreesWord(rounded)}${scale}`;
 }
 
+// Russian plural: 1 миллиметр, 2 миллиметра, 5 миллиметров (11-14 are "many")
+function pluralWord(number, one, few, many) {
+  const lastTwo = number % 100;
+  const last = number % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) return many;
+  if (last === 1) return one;
+  if (last >= 2 && last <= 4) return few;
+  return many;
+}
+
 // Make a row text easier to say: "12°" -> "12 градусов", "13:00–15:00" -> "с 13:00 до 15:00"
 // The numbers in a row text are already in the shown unit.
 function makeSpeakable(text, unitCode) {
   return text
     .replace(/(-?\d+)°/g, (match, digits) => speakDegrees(Number(digits), unitCode))
     .replace(/(\d\d:\d\d)–(\d\d:\d\d)/g, "с $1 до $2")
-    .replace(/ м\/с/g, " метров в секунду");
+    .replace(/ м\/с/g, " метров в секунду")
+    .replace(/\+(?=\d)/g, "плюс ")
+    .replace(/(\d+) мм(?![а-яё])/g, (match, digits) => `${digits} ${pluralWord(Number(digits), "миллиметр", "миллиметра", "миллиметров")}`)
+    .replace(/(\d+) см(?![а-яё])/g, (match, digits) => `${digits} ${pluralWord(Number(digits), "сантиметр", "сантиметра", "сантиметров")}`);
 }
 
 // One text for the speech engine: city, now, then every row as a sentence
@@ -365,4 +378,154 @@ function buildShareText(cityName, temperature, apparent, description, rows, unit
     text += ` ${clothes.icon} ${short}.`;
   }
   return `${text} — Неоновая погода`;
+}
+
+// ---------- 6. Weather warnings for the next 7 days ----------
+
+// Limits for the warnings. "warning" = be careful, "danger" = really dangerous.
+// All limits are in Celsius, m/s, mm and cm (the units of the API).
+const FROST_LIMIT = 0; // at this minimum or lower the night is frosty
+const HARD_FROST_LIMIT = -20; // very strong frost
+const HEAT_WARNING = 33; // max temperature of a hot day
+const HEAT_DANGER = 38;
+const GUST_WARNING = 15; // wind gusts, m/s
+const GUST_DANGER = 25;
+const RAIN_WARNING = 20; // rain in one day, mm
+const RAIN_DANGER = 50;
+const SNOW_WARNING = 10; // new snow in one day, cm
+const SNOW_DANGER = 25;
+const STORM_FIRST_CODE = 95; // WMO codes 95 to 99 are thunderstorms
+const STORM_LAST_CODE = 99;
+const STORM_LOOK_AHEAD_DAYS = 2; // we look 48 hours ahead for a thunderstorm
+const MAX_WARNING_ROWS = 4; // more rows would push the page down too much
+
+// "warning" or "danger" for a value, or null when it is below both limits
+function pickLevel(value, warningLimit, dangerLimit) {
+  if (!isNumberValue(value) || value < warningLimit) {
+    return null;
+  }
+  return value >= dangerLimit ? "danger" : "warning";
+}
+
+// The day with the biggest number in a field (the earlier day wins a tie)
+function findPeakDay(days, field) {
+  let peak = null;
+  for (const day of days) {
+    if (isNumberValue(day[field]) && (peak === null || day[field] > peak[field])) {
+      peak = day;
+    }
+  }
+  return peak;
+}
+
+// Frost. We warn about the FIRST frost (when today is still above zero),
+// not about every cold day of the winter. A very hard frost is always shown.
+function buildFrostWarning(days, todayDate, units) {
+  let coldest = null;
+  for (const day of days) {
+    if (isNumberValue(day.min) && (coldest === null || day.min < coldest.min)) {
+      coldest = day;
+    }
+  }
+  if (coldest !== null && coldest.min <= HARD_FROST_LIMIT) {
+    return {
+      level: "danger", icon: "🥶", date: coldest.date,
+      text: `Сильный мороз: до ${formatDegrees(coldest.min, units)} (${coldest.label})`,
+    };
+  }
+  const today = days.find((day) => day.date === todayDate);
+  if (!today || !isNumberValue(today.min) || today.min <= FROST_LIMIT) {
+    return null; // frost is already here: no news
+  }
+  const firstFrost = days.find((day) => isNumberValue(day.min) && day.min <= FROST_LIMIT);
+  if (!firstFrost) {
+    return null;
+  }
+  // The coldest point of that night is what the user cares about
+  return {
+    level: "warning", icon: "⚠️", date: firstFrost.date,
+    text: `Заморозки ночью: до ${formatDegrees(firstFrost.min, units)} (${firstFrost.label})`,
+  };
+}
+
+// One warning from the day with the biggest value of a field.
+// makeText(day, level) gives the sentence; null limits mean "no warning".
+function buildPeakWarning(days, field, warningLimit, dangerLimit, icon, makeText) {
+  const peak = findPeakDay(days, field);
+  if (peak === null) {
+    return null;
+  }
+  const level = pickLevel(peak[field], warningLimit, dangerLimit);
+  if (level === null) {
+    return null;
+  }
+  return { level: level, icon: icon, date: peak.date, text: makeText(peak, level) };
+}
+
+// "сегодня", "завтра" or "чт, 29 окт" for a date
+function nameDate(date, todayDate, days) {
+  if (date === todayDate) return "сегодня";
+  if (date === addDays(todayDate, 1)) return "завтра";
+  const day = days.find((item) => item.date === date);
+  return day ? day.label : date;
+}
+
+// Thunderstorm: the first stormy hour in the next 48 hours
+function buildStormWarning(days, hours, currentTime) {
+  const todayDate = currentTime.slice(0, 10);
+  const nowHour = currentTime.slice(0, 13);
+  const endHour = `${addDays(todayDate, STORM_LOOK_AHEAD_DAYS)}T${currentTime.slice(11, 13)}`;
+  const stormHour = hours.find(
+    (hour) =>
+      hour.weatherCode >= STORM_FIRST_CODE && hour.weatherCode <= STORM_LAST_CODE && hour.time.slice(0, 13) >= nowHour && hour.time.slice(0, 13) < endHour
+  );
+  if (!stormHour) {
+    return null;
+  }
+  const when = nameDate(stormHour.time.slice(0, 10), todayDate, days);
+  return {
+    level: "warning", icon: "⛈️", date: stormHour.time.slice(0, 10),
+    text: `Гроза: ${when} около ${stormHour.time.slice(11, 16)}`,
+  };
+}
+
+// days: [{ date, label, min, max, gust, rain, snow }] from today on (label = "сегодня", "чт, 29 окт")
+// hours: the list from app.js (see the top of this file)
+// Returns [{ level, icon, text }]: danger first, then by date; at most 4 rows.
+// An empty list means "no warnings".
+function buildWarnings(days, hours, currentTime, units = CELSIUS_UNITS) {
+  if (!isLocalTime(currentTime) || !Array.isArray(days) || !Array.isArray(hours)) {
+    return [];
+  }
+  const todayDate = currentTime.slice(0, 10);
+  const futureDays = days.filter((day) => day.date >= todayDate); // never warn about the past
+
+  // At most one warning of each type
+  const found = [
+    buildFrostWarning(futureDays, todayDate, units),
+    buildPeakWarning(futureDays, "max", HEAT_WARNING, HEAT_DANGER, "🔥", (day, level) =>
+      `${level === "danger" ? "Сильная жара" : "Жара"}: до +${roundDegrees(units.temp(day.max))}° (${day.label})`
+    ),
+    buildStormWarning(futureDays, hours, currentTime),
+    buildPeakWarning(futureDays, "gust", GUST_WARNING, GUST_DANGER, "💨", (day, level) =>
+      `${level === "danger" ? "Штормовой ветер" : "Сильный ветер"}: порывы до ${Math.round(day.gust)} м/с (${day.label})`
+    ),
+    buildPeakWarning(futureDays, "rain", RAIN_WARNING, RAIN_DANGER, "🌧️", (day) =>
+      `Ливень: ${Math.round(day.rain)} мм (${day.label})`
+    ),
+    buildPeakWarning(futureDays, "snow", SNOW_WARNING, SNOW_DANGER, "🌨️", (day) =>
+      `Сильный снегопад: ${Math.round(day.snow)} см (${day.label})`
+    ),
+  ].filter((warning) => warning !== null);
+
+  // Danger first; inside one level the earlier date goes first
+  found.sort((a, b) => {
+    if (a.level !== b.level) {
+      return a.level === "danger" ? -1 : 1;
+    }
+    return a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+  });
+  return found
+    .slice(0, MAX_WARNING_ROWS)
+    .map((warning) => ({ level: warning.level, icon: warning.icon, text: warning.text }));
 }

@@ -6,6 +6,7 @@ const searchButton = searchForm.querySelector("button");
 const statusElement = document.getElementById("status");
 const cityChoicesSection = document.getElementById("city-choices");
 const todaySection = document.getElementById("today");
+const warningsSection = document.getElementById("warnings");
 const assistantSection = document.getElementById("assistant");
 const hourlySection = document.getElementById("hourly");
 const dailySection = document.getElementById("daily");
@@ -174,7 +175,7 @@ async function searchCities(name) {
       latitude: item.latitude,
       longitude: item.longitude,
       // null means "unknown": then we do not send elevation at all
-      elevation: isNumber(item.elevation) ? item.elevation : null,
+      elevation: cleanElevation(item.elevation), // -9999 means "unknown"
     });
   }
 
@@ -394,7 +395,7 @@ async function fetchHourlyDaily(place) {
     "&hourly=temperature_2m,apparent_temperature,wind_speed_10m," +
     "weather_code,precipitation_probability,is_day" +
     "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max," +
-    "sunrise,sunset" +
+    "wind_gusts_10m_max,precipitation_sum,snowfall_sum,sunrise,sunset" +
     `&models=${MODELS.map((model) => model.id).join(",")}` +
     `&forecast_days=7&past_days=${PAST_DAYS}&wind_speed_unit=ms` +
     `&timezone=auto${elevationPart}`;
@@ -749,6 +750,61 @@ function buildHourSeries(hourly) {
   return hours;
 }
 
+// ---------- Weather warnings (the rules are in insights.js) ----------
+
+// Days from today on, with the numbers buildWarnings needs.
+// Averages of the models, like the rest of the app. Missing data stays null.
+function buildWarningDays(daily) {
+  const days = [];
+  if (!Array.isArray(daily.time)) {
+    return days;
+  }
+  daily.time.forEach((date, index) => {
+    const dayNumber = index - PAST_DAYS;
+    if (dayNumber < 0 || typeof date !== "string") {
+      return; // the past is not interesting for a warning
+    }
+    days.push({
+      date: date,
+      // The same names as in the 7-day list, but small letters inside a sentence
+      label: formatDayName({ date: date, dayNumber: dayNumber }).toLowerCase(),
+      min: averageAt(daily, "temperature_2m_min", index),
+      max: averageAt(daily, "temperature_2m_max", index),
+      gust: averageAt(daily, "wind_gusts_10m_max", index),
+      rain: averageAt(daily, "precipitation_sum", index),
+      snow: averageAt(daily, "snowfall_sum", index),
+    });
+  });
+  return days;
+}
+
+function getWarnings(forecast, currentTime) {
+  return buildWarnings(buildWarningDays(forecast.daily), buildHourSeries(forecast.hourly), currentTime, getUnits());
+}
+
+// The banner: nothing at all when there are no warnings
+function renderWarnings(warnings) {
+  warningsSection.replaceChildren();
+  if (warnings.length === 0) {
+    return;
+  }
+  const list = document.createElement("div");
+  list.className = "warning-list";
+  for (const warning of warnings) {
+    const rowElement = document.createElement("div");
+    rowElement.className = `warning-row is-${warning.level}`;
+    const icon = createElement("span", "warning-icon", warning.icon);
+    icon.setAttribute("aria-hidden", "true"); // the text says the same
+    rowElement.append(icon, createElement("span", "warning-text", warning.text));
+    list.append(rowElement);
+  }
+  const hasDanger = warnings.some((warning) => warning.level === "danger");
+  const banner = document.createElement("div");
+  banner.className = hasDanger ? "warning-card has-danger" : "warning-card";
+  banner.append(createElement("h2", "warning-title", "Предупреждения"), list);
+  warningsSection.append(banner);
+}
+
 // Speech works only in browsers that have it. We check it before we use it.
 function canSpeak() {
   return "speechSynthesis" in window && typeof SpeechSynthesisUtterance === "function";
@@ -787,7 +843,7 @@ function createSpeakButton(speechText) {
 }
 
 // air may be null (air request failed): then the assistant just skips the air row
-function renderAssistant(place, current, data, air) {
+function renderAssistant(place, current, data, air, warnings) {
   assistantSection.replaceChildren(); // start clean: no forecast = no assistant
   const rows = buildInsights(buildHourSeries(data.hourly), current.time, air ? air.aqi : null, getUnits());
   if (rows.length === 0) {
@@ -811,7 +867,9 @@ function renderAssistant(place, current, data, air) {
 
   if (canSpeak()) {
     const info = getWeatherInfo(current.weatherCode, current.isDay);
-    const speechText = buildSpeechText(place.name, current.temperature, info.text, rows, getUnits());
+    // The first 2 warnings are read before the advice
+    const spokenRows = [...warnings.slice(0, 2), ...rows];
+    const speechText = buildSpeechText(place.name, current.temperature, info.text, spokenRows, getUnits());
     panel.append(createSpeakButton(speechText));
   }
   assistantSection.append(panel);
@@ -847,7 +905,9 @@ function renderWeather(loaded) {
   if (loaded.forecast) {
     const forecastShown = renderForecast(loaded.forecast, loaded.current.time);
     if (forecastShown) {
-      renderAssistant(loaded.place, loaded.current, loaded.forecast, loaded.air);
+      const warnings = getWarnings(loaded.forecast, loaded.current.time);
+      renderWarnings(warnings);
+      renderAssistant(loaded.place, loaded.current, loaded.forecast, loaded.air, warnings);
     }
   } else {
     renderForecastError(); // the current card is still useful, so keep it
@@ -976,6 +1036,7 @@ function clearResults() {
   todaySection.replaceChildren();
   if (typeof hideStickyBar === "function") hideStickyBar(); // its city is gone too
   showHeaderDate(null); // no city on the screen: back to the phone's date
+  warningsSection.replaceChildren();
   assistantSection.replaceChildren();
   hourlySection.replaceChildren();
   chartSection.replaceChildren();

@@ -688,6 +688,80 @@ section:empty {
   margin-top: var(--space-1);
 }
 
+/* ---------- Weather warnings: an orange neon banner (red when there is danger) ---------- */
+
+.warning-card {
+  --warn-rgb: 255, 170, 60;
+  padding: var(--space-2);
+  background: rgba(40, 22, 6, 0.78);
+  border: 1.5px solid rgb(var(--warn-rgb));
+  border-radius: var(--radius-card);
+  box-shadow: 0 0 14px rgba(var(--warn-rgb), 0.45), inset 0 0 18px rgba(var(--warn-rgb), 0.12);
+}
+
+/* Danger: pink-red. The glow breathes slowly (the global reduced-motion rule stops it). */
+.warning-card.has-danger {
+  --warn-rgb: 255, 60, 100;
+  background: rgba(44, 8, 22, 0.8);
+  animation: warning-breath 4s ease-in-out infinite;
+}
+
+@keyframes warning-breath {
+  0%, 100% { box-shadow: 0 0 10px rgba(var(--warn-rgb), 0.35), inset 0 0 14px rgba(var(--warn-rgb), 0.1); }
+  50% { box-shadow: 0 0 22px rgba(var(--warn-rgb), 0.65), inset 0 0 22px rgba(var(--warn-rgb), 0.18); }
+}
+
+.warning-title {
+  margin: 0 0 12px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgb(var(--warn-rgb));
+  text-shadow: 0 0 8px rgba(var(--warn-rgb), 0.6);
+}
+
+.warning-row {
+  --row-rgb: 255, 170, 60;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: var(--space-1);
+  padding: 8px 12px 8px 8px;
+  background: rgba(var(--row-rgb), 0.1);
+  border: 1px solid rgba(var(--row-rgb), 0.4);
+  border-radius: var(--radius-tile);
+}
+
+.warning-row:last-child {
+  margin-bottom: 0;
+}
+
+.warning-row.is-danger {
+  --row-rgb: 255, 60, 100;
+}
+
+.warning-icon {
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  background: rgba(var(--row-rgb), 0.18);
+  border: 1.5px solid rgb(var(--row-rgb));
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(var(--row-rgb), 0.6);
+}
+
+/* Long text wraps instead of pushing the page sideways */
+.warning-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Loading: a pulsing placeholder where the card will appear ---------- */
 
 #today.is-loading {
