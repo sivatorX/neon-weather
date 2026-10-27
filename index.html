@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="background.css">
   <link rel="stylesheet" href="charts.css">
+  <link rel="stylesheet" href="icons.css">
   <!-- Leaflet (map library) from a CDN; integrity = the browser refuses the file if it was changed -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer">
   <link rel="stylesheet" href="radar.css">
@@ -21,6 +22,7 @@
   <script src="share.js" defer></script>
   <script src="scroll.js" defer></script>
   <script src="charts.js" defer></script>
+  <script src="icons.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer" defer></script>
   <script src="radar.js" defer></script>
   <script src="app.js" defer></script>
@@ -62,7 +64,7 @@
     <button id="locate-button" class="locate-button" type="button">📍 Моё место</button>
 
     <!-- Favourite cities as chips; app.js fills it (empty = hidden) -->
-    <div id="favourites" class="favourites" aria-label="Избранное"></div>
+    <div id="favourites" class="favourites" role="group" aria-label="Избранное"></div>
 
     <!-- Messages (loading, errors) will appear here -->
     <p id="status" role="status" aria-live="polite">Введите город, чтобы узнать погоду</p>

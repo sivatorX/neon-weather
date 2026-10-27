@@ -91,7 +91,7 @@ function pickAnchor(x) {
   return "middle";
 }
 
-// items: the hourly list from app.js, { clock: "15:00", temperature: 12.3 }, first item = now.
+// items: the hourly list from app.js, { clock: "15:00", temperature: 12.3, isNow: true/false }.
 // Returns an <svg> or null when there are too few hours to draw a line.
 function buildTemperatureChart(items, units = CHART_CELSIUS) {
   const hours = items.filter(
@@ -106,6 +106,10 @@ function buildTemperatureChart(items, units = CHART_CELSIUS) {
   const max = Math.max(...temperatures);
   const minIndex = temperatures.indexOf(min);
   const maxIndex = temperatures.indexOf(max);
+
+  // "Now" is the hour marked by app.js (isNow), not simply the first one.
+  // -1 means: no hour is "now", so the chart shows no "now" label and dot.
+  const nowIndex = hours.findIndex((hour) => hour.isNow === true);
 
   const stepX = (CHART_WIDTH - CHART_SIDE * 2) / (hours.length - 1);
   const points = hours.map((hour, index) => ({
@@ -140,13 +144,14 @@ function buildTemperatureChart(items, units = CHART_CELSIUS) {
     if (index > 0) {
       svg.append(makeSvg("line", { class: "chart-guide", x1: x, y1: CHART_TOP - 8, x2: x, y2: CHART_BOTTOM + 10 }));
     }
-    const label = index === 0 ? "Сейчас" : hours[index].clock;
+    const isNow = index === nowIndex;
+    const label = isNow ? "Сейчас" : hours[index].clock;
     svg.append(
       makeSvgText(label, {
-        class: index === 0 ? "chart-label chart-label-now" : "chart-label",
+        class: isNow ? "chart-label chart-label-now" : "chart-label",
         x: x,
         y: CHART_HEIGHT - 8,
-        "text-anchor": index === 0 ? "start" : "middle",
+        "text-anchor": isNow && index === 0 ? "start" : "middle",
       })
     );
   }
@@ -177,8 +182,11 @@ function buildTemperatureChart(items, units = CHART_CELSIUS) {
   }
 
   // "Now": a bright dot with a soft ring around it
-  svg.append(makeSvg("circle", { class: "chart-now-ring", cx: points[0].x, cy: points[0].y, r: 9 }));
-  svg.append(makeSvg("circle", { class: "chart-now", cx: points[0].x, cy: points[0].y, r: 5 }));
+  if (nowIndex !== -1) {
+    const nowPoint = points[nowIndex];
+    svg.append(makeSvg("circle", { class: "chart-now-ring", cx: nowPoint.x, cy: nowPoint.y, r: 9 }));
+    svg.append(makeSvg("circle", { class: "chart-now", cx: nowPoint.x, cy: nowPoint.y, r: 5 }));
+  }
 
   return svg;
 }

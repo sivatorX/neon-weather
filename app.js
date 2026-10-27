@@ -47,6 +47,9 @@ const AIR_QUALITY_URL = "https://air-quality-api.open-meteo.com/v1/air-quality";
 
 const NETWORK_ERROR_MESSAGE =
   "Нет связи с интернетом. Проверьте подключение и попробуйте ещё раз.";
+const TIMEOUT_ERROR_MESSAGE = "Сервер долго не отвечает. Попробуйте ещё раз.";
+const GENERIC_ERROR_MESSAGE = "Что-то пошло не так. Обновите страницу и попробуйте ещё раз.";
+const REQUEST_TIMEOUT_MS = 15000;
 
 // WMO weather code -> text and emoji.
 // "nightIcon" is used instead of "icon" when it is night (is_day = 0).
@@ -98,24 +101,52 @@ function isNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-// Download JSON from a URL. Throws an Error with a message the user can read.
+// An error whose message is written for the user (in Russian).
+// Any other error is a bug or a browser problem: the user must not see its English text.
+class FriendlyError extends Error {}
+
+// What to show for any error: our own text, or a general one (the details go to the console)
+function describeError(error) {
+  if (error instanceof FriendlyError) {
+    return error.message;
+  }
+  console.error(error);
+  return GENERIC_ERROR_MESSAGE;
+}
+
+// Download JSON from a URL. Throws a FriendlyError with a message the user can read.
 async function fetchJson(url) {
+  // Without a timeout a stuck server would keep "Загружаю…" on the screen forever.
+  // Very old browsers have no AbortSignal.timeout: then we use a plain fetch.
+  const options =
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
+      : {};
+
   let response;
   try {
-    response = await fetch(url);
+    response = await fetch(url, options);
   } catch (error) {
-    // fetch only fails like this when the network is down
-    throw new Error(NETWORK_ERROR_MESSAGE);
+    // The timeout gives a "TimeoutError"; everything else here means the network is down
+    throw new FriendlyError(isTimeoutError(error) ? TIMEOUT_ERROR_MESSAGE : NETWORK_ERROR_MESSAGE);
   }
   // fetch does not fail on 404/500, so we check response.ok ourselves
   if (!response.ok) {
-    throw new Error("Сервис погоды сейчас недоступен. Попробуйте позже.");
+    throw new FriendlyError("Сервис погоды сейчас недоступен. Попробуйте позже.");
   }
   try {
     return await response.json();
   } catch (error) {
-    throw new Error("Сервис погоды вернул непонятный ответ. Попробуйте позже.");
+    // The timer also keeps running while the body is downloaded
+    if (isTimeoutError(error)) {
+      throw new FriendlyError(TIMEOUT_ERROR_MESSAGE);
+    }
+    throw new FriendlyError("Сервис погоды вернул непонятный ответ. Попробуйте позже.");
   }
+}
+
+function isTimeoutError(error) {
+  return Boolean(error) && error.name === "TimeoutError";
 }
 
 // Find all cities that match the name (up to 5). Bad results are skipped.
@@ -148,7 +179,7 @@ async function searchCities(name) {
   }
 
   if (places.length === 0) {
-    throw new Error("Город не найден. Проверьте название и попробуйте ещё раз.");
+    throw new FriendlyError("Город не найден. Проверьте название и попробуйте ещё раз.");
   }
   return places;
 }
@@ -175,7 +206,7 @@ async function fetchModelCurrent(place, modelId) {
   const data = await fetchJson(url);
 
   if (!data || !data.current || typeof data.current !== "object") {
-    throw new Error("Сервис погоды вернул неполные данные. Попробуйте позже.");
+    throw new FriendlyError("Сервис погоды вернул неполные данные. Попробуйте позже.");
   }
   return data.current;
 }
@@ -250,7 +281,7 @@ async function fetchForecast(place) {
     combined.humidity === null ||
     combined.isDay === null
   ) {
-    throw new Error("Сервис погоды вернул неполные данные. Попробуйте позже.");
+    throw new FriendlyError("Сервис погоды вернул неполные данные. Попробуйте позже.");
   }
   return combined;
 }
@@ -305,8 +336,8 @@ function renderToday(place, current) {
   const card = document.createElement("div");
   card.className = "card";
 
-  const icon = createElement("div", "card-icon", info.icon);
-  icon.setAttribute("aria-hidden", "true"); // the text below says the same
+  // The big icon is the only animated one on the card (aria-hidden: the text below says the same)
+  const icon = createIcon("card-icon", current.weatherCode, current.isDay, 96, true);
 
   card.append(
     createFavouriteToggle(place),
@@ -335,7 +366,8 @@ function renderToday(place, current) {
   showHeaderDate(current.time); // the date of the city, not of the phone
   // The slim bar at the top shows the same city, temperature and icon (scroll.js)
   if (typeof updateStickyBar === "function") {
-    updateStickyBar(place.name, formatTemp(current.temperature), info.icon);
+    const stickyIconNode = createIconContent(current.weatherCode, current.isDay, 22, false);
+    updateStickyBar(place.name, formatTemp(current.temperature), stickyIconNode);
   }
 }
 
@@ -369,7 +401,7 @@ async function fetchHourlyDaily(place) {
   const data = await fetchJson(url);
 
   if (!data || !data.hourly || !data.daily) {
-    throw new Error(FORECAST_ERROR_MESSAGE);
+    throw new FriendlyError(FORECAST_ERROR_MESSAGE);
   }
   return data;
 }
@@ -425,6 +457,8 @@ function buildHourlyItems(hourly, currentTime) {
       weatherCode: weatherCode,
       isDay: firstAt(hourly, "is_day", index),
       rain: firstAt(hourly, "precipitation_probability", index),
+      // "Now" is the hour that equals the current hour, not just the first card
+      isNow: startHour !== "" && time.slice(0, 13) === startHour,
     });
   }
   return items;
@@ -475,10 +509,38 @@ function formatDayName(item) {
   return `${WEEKDAYS[day.getDay()]}, ${day.getDate()} ${MONTHS[day.getMonth()]}`;
 }
 
-function createIcon(className, weatherCode, isDay) {
-  const icon = createElement("div", className, getWeatherInfo(weatherCode, isDay).icon);
+// The weather picture as one node: the neon SVG from icons.js, or the emoji
+// when icons.js did not load (then the page still works).
+// animated = false adds a class that stops the animation (small icons in lists).
+function createIconContent(weatherCode, isDay, size, animated) {
+  if (typeof createWeatherIcon === "function") {
+    const svg = createWeatherIcon(weatherCode, isDay, size);
+    if (!animated) {
+      svg.classList.add("wx-icon--static");
+    }
+    return svg;
+  }
+  return document.createTextNode(getWeatherInfo(weatherCode, isDay).icon);
+}
+
+function createIcon(className, weatherCode, isDay, size, animated) {
+  const icon = createElement("div", className, "");
+  icon.append(createIconContent(weatherCode, isDay, size, animated));
   icon.setAttribute("aria-hidden", "true"); // decoration only
   return icon;
+}
+
+// "💧 40%" for the eyes, "Вероятность дождя 40%" for screen readers
+function createRainLabel(className, rainPercent) {
+  const percent = Math.round(rainPercent);
+  const rain = createElement("div", className, "");
+  const drop = createElement("span", "", "💧");
+  drop.setAttribute("aria-hidden", "true"); // the label below says the same
+  rain.append(drop, ` ${percent}%`);
+  // aria-label on a plain <div> is often ignored, so the role makes it count
+  rain.setAttribute("role", "img");
+  rain.setAttribute("aria-label", `Вероятность дождя ${percent}%`);
+  return rain;
 }
 
 // A glass card with a title and some content (used by the hourly and 7-day lists)
@@ -492,21 +554,22 @@ function createPanel(title, content) {
 function renderHourly(items) {
   const row = document.createElement("div");
   row.className = "hourly-row";
-  items.forEach((item, index) => {
+  for (const item of items) {
     const card = document.createElement("div");
-    // The first card is "now": CSS highlights it
-    card.className = index === 0 ? "hour-card is-now" : "hour-card";
+    // The card of the current hour is "now" (found by time, not by position): CSS highlights it.
+    // Only this icon moves; the other ones stay still so the list is calm.
+    card.className = item.isNow ? "hour-card is-now" : "hour-card";
     card.append(
-      createElement("div", "hour-time", index === 0 ? "Сейчас" : item.clock),
-      createIcon("hour-icon", item.weatherCode, item.isDay),
+      createElement("div", "hour-time", item.isNow ? "Сейчас" : item.clock),
+      createIcon("hour-icon", item.weatherCode, item.isDay, 28, item.isNow),
       createElement("div", "hour-temp", formatTemp(item.temperature))
     );
     // Show rain only when there is a chance of it
     if (item.rain !== null && item.rain > 0) {
-      card.append(createElement("div", "rain", `💧 ${Math.round(item.rain)}%`));
+      card.append(createRainLabel("rain", item.rain));
     }
     row.append(card);
-  });
+  }
   hourlySection.replaceChildren(createPanel("Ближайшие 24 часа", row));
 }
 
@@ -520,7 +583,8 @@ function renderDaily(items) {
   list.className = "daily-list";
   for (const item of items) {
     const row = document.createElement("div");
-    row.className = "day-row";
+    // Today is found by its number, not by being first in the list
+    row.className = item.dayNumber === 0 ? "day-row is-today" : "day-row";
 
     const bar = document.createElement("div");
     bar.className = "range-bar";
@@ -538,12 +602,16 @@ function renderDaily(items) {
     }
     bar.append(fill);
 
-    const rainText = item.rain !== null && item.rain > 0 ? `💧 ${Math.round(item.rain)}%` : "";
+    // An empty div stays when there is no rain: it keeps the grid columns in place
+    const hasRain = item.rain !== null && item.rain > 0;
+    const rainElement = hasRain
+      ? createRainLabel("rain day-rain", item.rain)
+      : createElement("div", "rain day-rain", "");
 
     row.append(
       createElement("div", "day-name", formatDayName(item)),
-      createIcon("day-icon", item.weatherCode, 1),
-      createElement("div", "rain day-rain", rainText),
+      createIcon("day-icon", item.weatherCode, 1, 28, false),
+      rainElement,
       createElement("div", "day-temps", `${formatTemp(item.min)} / ${formatTemp(item.max)}`),
       bar
     );
@@ -615,7 +683,7 @@ async function fetchAirQuality(place) {
 
   const current = data && data.current;
   if (!current || !isNumber(current.european_aqi)) {
-    throw new Error("Нет данных о воздухе");
+    throw new FriendlyError("Нет данных о воздухе");
   }
   return {
     aqi: current.european_aqi,
@@ -824,7 +892,7 @@ async function loadWeather(place) {
     setStatus("");
   } catch (error) {
     // Error state
-    setStatus(error.message);
+    setStatus(describeError(error));
     hideBackground();
     if (typeof hideStickyBar === "function") hideStickyBar();
   } finally {
@@ -871,10 +939,15 @@ async function handleSearch(event) {
       // Do not guess: wait until the user picks the right city
       renderCityChoices(places);
       setStatus("Найдено несколько городов. Выберите нужный:");
+      // Keyboard and screen-reader users continue with the first choice
+      const firstChoice = cityChoicesSection.querySelector("button");
+      if (firstChoice) {
+        firstChoice.focus();
+      }
     }
   } catch (error) {
     // Error state
-    setStatus(error.message);
+    setStatus(describeError(error));
     hideBackground();
   } finally {
     // Runs after success and after error, so the buttons never stay locked
@@ -901,6 +974,7 @@ function clearResults() {
   cityChoicesSection.replaceChildren();
   stopSpeaking();
   todaySection.replaceChildren();
+  if (typeof hideStickyBar === "function") hideStickyBar(); // its city is gone too
   showHeaderDate(null); // no city on the screen: back to the phone's date
   assistantSection.replaceChildren();
   hourlySection.replaceChildren();
@@ -999,12 +1073,11 @@ function createFavouriteToggle(place) {
   const update = () => {
     const active = isFavourite(place);
     button.textContent = active ? "★" : "☆";
+    // The label never changes; only aria-pressed tells if it is on
+    // (a changing label plus aria-pressed would be read twice)
     button.setAttribute("aria-pressed", String(active));
-    button.setAttribute(
-      "aria-label",
-      active ? "Убрать из избранного" : "Добавить в избранное"
-    );
   };
+  button.setAttribute("aria-label", "В избранное");
   update();
   updateCardStar = update;
 
@@ -1018,7 +1091,10 @@ function renderFavourites() {
     chip.className = "fav-chip";
 
     // Saved places already have coordinates: no geocoding needed
-    const openButton = createElement("button", "fav-open", `★ ${place.name}`);
+    // The star is decoration: a screen reader should read only the city name
+    const openButton = createElement("button", "fav-open", "");
+    openButton.append(createElement("span", "", "★"), ` ${place.name}`);
+    openButton.firstElementChild.setAttribute("aria-hidden", "true");
     openButton.type = "button";
     openButton.addEventListener("click", () => loadWeather(place));
 
@@ -1114,7 +1190,8 @@ async function handleLocate() {
     if (!isNumber(latitude) || !isNumber(longitude)) {
       throw new Error("bad position");
     }
-    // 3 decimals is about 100 m: enough for weather, and we do not store more
+    // 3 decimals is about 100 m: enough for weather. The place may be saved as a
+    // favourite or as the last city, and then these coordinates are kept on the device.
     const roundedLatitude = Math.round(latitude * 1000) / 1000;
     const roundedLongitude = Math.round(longitude * 1000) / 1000;
     const found = await lookupPlaceName(roundedLatitude, roundedLongitude);
@@ -1127,7 +1204,8 @@ async function handleLocate() {
       elevation: null, // unknown: Open-Meteo uses its own terrain data
     };
   } catch (error) {
-    // Error state
+    // Error state. describeGeolocationError only gives our own Russian texts.
+    console.error(error);
     setStatus(describeGeolocationError(error));
     hideBackground();
     setBusy(false);

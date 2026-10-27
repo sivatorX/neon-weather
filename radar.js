@@ -141,7 +141,13 @@ function readRadarAnswer(data) {
 }
 
 async function fetchRadarFrames() {
-  const response = await fetch(RADAR_API_URL);
+  // Without a timeout a stuck server would keep "Загружаем радар…" on the screen forever.
+  // Very old browsers have no AbortSignal.timeout: then we use a plain fetch.
+  const options =
+    typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
+      ? { signal: AbortSignal.timeout(15000) }
+      : {};
+  const response = await fetch(RADAR_API_URL, options);
   if (!response.ok) throw new Error("RainViewer answered " + response.status);
   const answer = readRadarAnswer(await response.json());
   if (!answer) throw new Error("Unexpected RainViewer answer");
@@ -188,9 +194,8 @@ function showRadarFrame(index) {
   });
   radarState.frameIndex = index;
 
-  const time = new Date(radarState.frames[index].time * 1000);
-  const clock = time.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  radarState.elements.timeLabel.textContent = clock + " · " + formatRadarAge(radarState.frames[index].time);
+  // Only the age: a clock time would be in the phone's time zone, not the city's
+  radarState.elements.timeLabel.textContent = formatRadarAge(radarState.frames[index].time);
 }
 
 function playRadar() {
@@ -237,12 +242,14 @@ function showRadarContent() {
 }
 
 async function showRadar(latitude, longitude, cityName) {
+  // Declared before "try", so the catch can also see which request this is
+  let myRequest = -1;
   try {
     if (!radarSection || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
     if (!radarState.built) buildRadarPanel();
     radarSection.hidden = false;
     radarState.requestNumber += 1;
-    const myRequest = radarState.requestNumber;
+    myRequest = radarState.requestNumber;
 
     if (typeof L === "undefined") {
       showRadarMessage("Радар сейчас недоступен");
@@ -264,6 +271,8 @@ async function showRadar(latitude, longitude, cityName) {
     addRadarFrames(answer.host, answer.frames);
     if (!prefersReducedMotionForRadar()) playRadar();
   } catch (error) {
+    // An old request that failed late must not break the radar of the newer city
+    if (myRequest !== -1 && myRequest !== radarState.requestNumber) return;
     console.error("Radar failed:", error);
     if (radarState.built) {
       stopRadar();

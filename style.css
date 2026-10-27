@@ -108,6 +108,7 @@ h1 {
   line-height: 1.1;
   color: var(--neon);
   text-shadow: var(--text-glow);
+  padding-right: 112px; /* keeps the title away from the °C / °F switch */
 }
 
 .header-date {
@@ -121,9 +122,7 @@ h1 {
 .card,
 .assistant-card,
 .panel,
-.locate-button,
 .fav-chip,
-.city-choices button,
 #today.is-loading {
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
@@ -138,9 +137,7 @@ h1 {
   .card,
   .assistant-card,
   .panel,
-  .locate-button,
   .fav-chip,
-  .city-choices button,
   #today.is-loading {
     background: var(--card);
   }
@@ -243,11 +240,16 @@ h1 {
 .city-choices button:focus-visible,
 .speak-button:focus-visible,
 .locate-button:focus-visible,
-.fav-chip button:focus-visible,
 .fav-toggle:focus-visible,
 .to-top:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* The chip hides everything outside it (overflow: hidden), so its ring goes INSIDE */
+.fav-chip button:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: -3px;
 }
 
 /* The buttons are disabled while the weather is loading */
@@ -283,6 +285,11 @@ h1 {
 
 section {
   margin-bottom: var(--space-2);
+}
+
+/* An empty section should not leave a gap (the radar is hidden with the "hidden" attribute) */
+section:empty {
+  display: none;
 }
 
 /* List of cities with the same name: one tappable button per city */
@@ -372,12 +379,13 @@ section {
   overflow-wrap: anywhere;
 }
 
+/* The neon SVG icon (icons.css) has its own glow. font-size is only for the emoji fallback. */
 .card-icon {
+  display: flex;
+  justify-content: center;
   margin-top: var(--space-1);
   font-size: 64px;
   line-height: 1.2;
-  /* A soft light behind the emoji */
-  filter: drop-shadow(0 0 14px rgba(var(--neon-rgb), 0.6));
 }
 
 /* Huge and glowing: the temperature is the hero of the page.
@@ -540,8 +548,11 @@ section {
 }
 
 .hour-icon {
-  font-size: 28px;
-  line-height: 1.5;
+  display: flex;
+  justify-content: center;
+  margin: 6px 0;
+  font-size: 28px; /* only for the emoji fallback */
+  line-height: 1;
 }
 
 .hour-temp {
@@ -567,21 +578,23 @@ section {
   border-top: none;
 }
 
-/* Today glows: a tinted row with its own neon outline */
-.day-row:first-child {
+/* Today glows: a tinted row with its own neon outline (app.js adds "is-today").
+   It comes after :first-child, so its outline wins when today is the first row. */
+.day-row.is-today {
   background: var(--now-bg);
   border: 1px solid var(--neon);
   box-shadow: var(--glow-strong);
 }
 
-.day-row:first-child .day-name {
+.day-row.is-today .day-name {
   font-weight: 700;
   color: var(--neon);
 }
 
 .day-icon {
-  font-size: 24px;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  font-size: 24px; /* only for the emoji fallback */
 }
 
 .day-rain {
@@ -785,7 +798,8 @@ section {
 }
 
 .sticky-icon {
-  font-size: 20px;
+  display: flex;
+  font-size: 20px; /* only for the emoji fallback */
 }
 
 /* ---------- "Up" button ---------- */
@@ -836,10 +850,6 @@ section {
 
 header {
   position: relative;
-}
-
-h1 {
-  padding-right: 112px; /* keeps the title away from the switch */
 }
 
 /* One neon pill split in two buttons. Each button is at least 44px tall and wide. */

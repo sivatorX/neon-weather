@@ -15,7 +15,8 @@ const scrollMarker = document.getElementById("scroll-marker");
 
 // Blocks that fade in when they reach the screen
 const REVEAL_SELECTOR =
-  ".assistant-card, #hourly .panel, #chart .panel, #sun .panel, #air .panel, #daily .panel, #daily .day-row, #radar .panel";
+  ".assistant-card, #hourly .panel, #chart .panel, #sun .panel, #air .panel, #daily .panel, #daily .day-row";
+// (the radar panel is not here: its map needs a visible box to measure itself)
 
 let revealObserver = null;
 let temperatureObserver = null;
@@ -57,11 +58,13 @@ function refreshScrollEffects() {
 }
 
 // Fill the slim bar and show it when the big temperature has scrolled out at the top
-function updateStickyBar(cityName, temperatureText, iconText) {
+// iconNode is a ready icon (an <svg> or a text node) made by app.js
+function updateStickyBar(cityName, temperatureText, iconNode) {
   if (!stickyBar) return;
   stickyCity.textContent = cityName;
   stickyTemp.textContent = temperatureText;
-  stickyIcon.textContent = iconText;
+  // Without a real node the icon place just stays empty
+  stickyIcon.replaceChildren(...(iconNode instanceof Node ? [iconNode] : []));
 
   if (!canObserve) return;
   const bigTemperature = document.querySelector("#today .card-temp");

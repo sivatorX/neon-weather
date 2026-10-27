@@ -263,16 +263,28 @@ function buildYesterdayComparison(hours, currentTime, units) {
 
 // ---------- 4. Bad air ----------
 
-const BAD_AIR_LIMIT = 60; // European AQI from which the air is "poor"
+// European AQI limits. They must stay the same as AIR_LEVELS in charts.js
+// (up to 60 = "Умеренный", 61-80 = "Плохой", 81-100 = "Очень плохой", above = "Ужасный"),
+// otherwise the advice and the air panel would disagree.
+const AIR_MODERATE_MAX = 60;
+const AIR_BAD_MAX = 80;
+const AIR_VERY_BAD_MAX = 100;
 
 // One row { icon, text } when the air is bad, otherwise null.
 // aqi may be null (no air data): then there is no row.
 function buildAirAdvice(aqi) {
-  if (!isNumberValue(aqi) || aqi < BAD_AIR_LIMIT) {
+  if (!isNumberValue(aqi)) {
     return null;
   }
-  const word = aqi > 100 ? "ужасное" : aqi > 80 ? "очень плохое" : "плохое";
-  return { icon: "😷", text: `Воздух ${word} (AQI ${Math.round(aqi)}): лучше не гулять долго` };
+  // The panel shows the rounded number, so we compare the rounded number too
+  const shownAqi = Math.round(aqi);
+  if (shownAqi <= AIR_MODERATE_MAX) {
+    return null;
+  }
+  // "Воздух" is masculine in Russian here: "плохой", not "плохое"
+  const word =
+    shownAqi > AIR_VERY_BAD_MAX ? "ужасный" : shownAqi > AIR_BAD_MAX ? "очень плохой" : "плохой";
+  return { icon: "😷", text: `Воздух ${word} (AQI ${shownAqi}): лучше не гулять долго` };
 }
 
 // ---------- All rows together ----------
