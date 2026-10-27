@@ -32,7 +32,7 @@ New skills for this project: `fetch`, `async/await`, JSON, loading states, error
   5. ✅ Assistant panel: what to wear, best time for a walk, compare with yesterday, read aloud (`insights.js`).
   6. ✅ "My location" button + favourite cities (`localStorage`).
   7. ✅ 24-hour temperature chart, sunrise/sunset, air quality (`https://air-quality-api.open-meteo.com/v1/air-quality`, no key).
-  8. Publish on GitHub Pages.
+  8. ✅ Published: https://sivatorx.github.io/neon-weather/ (repo `sivatorX/neon-weather`).
 - Optional later: "use my location" (`navigator.geolocation`), °C/°F switch, saved favourite cities (`localStorage`), a temperature chart.
 - Never put secret API keys in this repo. A service that needs a key needs a small server; that is a level 3 topic.
 
@@ -48,7 +48,7 @@ New skills for this project: `fetch`, `async/await`, JSON, loading states, error
 - **git:** commit after each finished step with a clear message (`Add 7-day forecast`).
   - The author knows `git add`, `git commit` and `git push`; teach new commands when they come up.
   - Before committing, check that nothing unrelated is staged.
-- **GitHub:** the repo will be `sivatorX/<name>` with GitHub Pages from `main` / root. A push updates the site within about 1 minute.
+- **GitHub:** the repo is `sivatorX/neon-weather` with GitHub Pages from `main` / root. A push updates the site within about 1 minute.
   - GitHub CLI is installed but **not on PATH**: `/c/Users/armin/AppData/Local/Microsoft/WinGet/Packages/GitHub.cli_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/gh.exe` (logged in as sivatorX).
 - After a bigger change, the `code-improver` agent can review the code; verify each finding before fixing it.
 
