@@ -11,6 +11,13 @@ function isRealNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+// The city search sends -9999 when it does not know the height.
+// Passing that on makes the forecast absurd (+74° in Tromsø), so only
+// real heights on Earth count: Dead Sea shore (-430 m) to Everest (8849 m).
+function cleanElevation(value) {
+  return isRealNumber(value) && value >= -430 && value <= 8849 ? value : null;
+}
+
 // Read and parse JSON. Returns null when nothing is saved or the data is broken.
 function readStoredJson(key) {
   try {
@@ -52,7 +59,7 @@ function cleanStoredPlace(item) {
     region: typeof item.region === "string" ? item.region : "",
     latitude: item.latitude,
     longitude: item.longitude,
-    elevation: isRealNumber(item.elevation) ? item.elevation : null,
+    elevation: cleanElevation(item.elevation),
   };
 }
 
